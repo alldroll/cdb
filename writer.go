@@ -4,8 +4,16 @@ import (
 	"io"
 	"encoding/binary"
 	"hash"
-	"log"
+	"unsafe"
 )
+
+// slot (bucket) is ..
+type slot struct {
+	hash, position uint32
+}
+
+// hashTable is a linearly probed open hash table
+type hashTable []slot
 
 // writerImpl
 type writerImpl struct {
@@ -15,12 +23,16 @@ type writerImpl struct {
 	begin, current int64
 }
 
+// calcTablesRefsSize
+func calcTablesRefsSize() int64 {
+	return int64(unsafe.Sizeof(hashTableRef{}) * TABLE_NUM)
+}
+
 //
-func newWriter(writer io.WriteSeeker, h hash.Hash32, startPosition int64) *writerImpl {
+func newWriter(writer io.WriteSeeker, h hash.Hash32) *writerImpl {
+	startPosition := calcTablesRefsSize()
 	begin, _ := writer.Seek(0, io.SeekCurrent)
 	writer.Seek(startPosition, io.SeekStart)
-
-	log.Println("START", startPosition)
 
 	return &writerImpl{
 		writer: writer,
@@ -31,21 +43,36 @@ func newWriter(writer io.WriteSeeker, h hash.Hash32, startPosition int64) *write
 }
 
 //
-func (w *writerImpl) Put(key string, keySize uint32, value string, valueSize uint32) error {
-	binary.Write(w.writer, binary.LittleEndian, keySize)
-	binary.Write(w.writer, binary.LittleEndian, []byte(key))
+func (w *writerImpl) Put(key []byte, value []byte) error {
 
-	binary.Write(w.writer, binary.LittleEndian, valueSize)
-	binary.Write(w.writer, binary.LittleEndian, []byte(value))
+	err := binary.Write(w.writer, binary.LittleEndian, uint32(len(key)))
+	if err != nil {
+		return err
+	}
 
-	w.hash.Write([]byte(key))
+	err = binary.Write(w.writer, binary.LittleEndian, key)
+	if err != nil {
+		return err
+	}
+
+	err = binary.Write(w.writer, binary.LittleEndian, uint32(len(value)))
+	if err != nil {
+		return err
+	}
+
+	err = binary.Write(w.writer, binary.LittleEndian, value)
+	if err != nil {
+		return err
+	}
+
+	w.hash.Write(key)
 	h := w.hash.Sum32()
 
 	table := w.tables[h % TABLE_NUM]
 	table = append(table, slot{h, uint32(w.current)})
 	w.tables[h % TABLE_NUM] = table
 
-	w.current += int64(4 + keySize + 4 + valueSize)
+	w.current += int64(4 + len(key) + 4 + len(value))
 
 	return nil
 }
@@ -72,37 +99,41 @@ func (w *writerImpl) Close() error {
 			slots[k].hash = slot.hash
 		}
 
-		log.Println("slots", slots)
-
 		for _, slot := range slots {
-			pos, err := w.writer.Seek(0, io.SeekCurrent)
-			log.Println("1", pos, err, slot)
-			binary.Write(w.writer, binary.LittleEndian, slot.hash)
-			binary.Write(w.writer, binary.LittleEndian, slot.position)
+			err := binary.Write(w.writer, binary.LittleEndian, slot.hash)
+			if err != nil {
+				return err
+			}
 
-			pos, err = w.writer.Seek(0, io.SeekCurrent)
-			log.Println("2", pos, err)
+			err = binary.Write(w.writer, binary.LittleEndian, slot.position)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
 	offset, _ := w.writer.Seek(0, io.SeekCurrent)
 	w.writer.Seek(w.begin, io.SeekStart)
 
+	var pos uint32 = 0
+
 	for _, table := range w.tables {
 		n := uint32(len(table) << 1)
 		if n == 0 {
-			binary.Write(w.writer, binary.LittleEndian, n)
+			pos = 0
 		} else {
-			binary.Write(w.writer, binary.LittleEndian, uint32(w.current))
+			pos = uint32(w.current)
 		}
 
+		err := binary.Write(w.writer, binary.LittleEndian, pos)
+		if err != nil {
+			return err
+		}
 
-		binary.Write(w.writer, binary.LittleEndian, n)
-
-		/*
-		pos, _ := w.writer.Seek(0, io.SeekCurrent)
-		log.Println(w.current, n, pos)
-		*/
+		err = binary.Write(w.writer, binary.LittleEndian, n)
+		if err != nil {
+			return err
+		}
 
 		w.current += int64(4 * n * 2)
 	}
@@ -110,3 +141,4 @@ func (w *writerImpl) Close() error {
 	w.writer.Seek(offset, io.SeekStart)
 	return nil
 }
+

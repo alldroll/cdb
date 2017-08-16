@@ -1,7 +1,6 @@
 package cdb
 
 import (
-	"unsafe"
 	"io"
 	"hash"
 )
@@ -18,26 +17,13 @@ type CDB struct {
 
 // Writer is ....
 type Writer interface {
-	Put(key string, keySize uint32, value string, valueSize uint32) error
+	Put(key []byte, value []byte) error
 	Close() error
 }
 
 // Reader is ....
 type Reader interface {
-	Get(key string) (string, error)
-}
-
-// hashTableRef
-type hashTableRef struct {
-	position, length uint32
-}
-
-// hashTable is a linearly probed open hash table
-type hashTable []slot
-
-// slot (bucket) is ..
-type slot struct {
-	hash, position uint32
+	Get(key []byte) ([]byte, error)
 }
 
 func New(h hash.Hash32) *CDB {
@@ -46,14 +32,9 @@ func New(h hash.Hash32) *CDB {
 
 // GetWriter
 func (cdb *CDB) GetWriter(writer io.WriteSeeker) Writer {
-	return newWriter(writer, cdb.h, cdb.calcTablesRefsSize())
+	return newWriter(writer, cdb.h)
 }
 
-func (cdb *CDB) NewReader(reader io.ReadSeeker) Reader {
+func (cdb *CDB) GetReader(reader io.ReadSeeker) (Reader, error) {
 	return newReader(reader, cdb.h)
-}
-
-// calcTablesRefsSize
-func (cdb *CDB) calcTablesRefsSize() int64 {
-	return int64(unsafe.Sizeof(hashTableRef{}) * TABLE_NUM)
 }
