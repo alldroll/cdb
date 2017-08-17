@@ -23,14 +23,9 @@ type writerImpl struct {
 	begin, current int64
 }
 
-// calcTablesRefsSize
-func calcTablesRefsSize() int64 {
-	return int64(unsafe.Sizeof(hashTableRef{}) * TABLE_NUM)
-}
-
 //
 func newWriter(writer io.WriteSeeker, h hash.Hash32) *writerImpl {
-	startPosition := calcTablesRefsSize()
+	startPosition := int64(calcTablesRefsSize())
 	begin, _ := writer.Seek(0, io.SeekCurrent)
 	writer.Seek(startPosition, io.SeekStart)
 
@@ -117,6 +112,7 @@ func (w *writerImpl) Close() error {
 
 	var pos uint32 = 0
 
+	slotSize := calcSlotSize()
 	for _, table := range w.tables {
 		n := uint32(len(table) << 1)
 		if n == 0 {
@@ -135,10 +131,18 @@ func (w *writerImpl) Close() error {
 			return err
 		}
 
-		w.current += int64(4 * n * 2)
+		w.current += int64(slotSize * n)
 	}
 
 	w.writer.Seek(offset, io.SeekStart)
 	return nil
 }
 
+// calcTablesRefsSize
+func calcTablesRefsSize() uint32 {
+	return uint32(unsafe.Sizeof(hashTableRef{}) * TABLE_NUM)
+}
+
+func calcSlotSize() uint32 {
+	return uint32(unsafe.Sizeof(slot{}))
+}

@@ -141,4 +141,3 @@ func BenchmarkWriterImpl_Put(b *testing.B) {
 
 	writer.Close()
 }
-

@@ -1,5 +1,7 @@
 package cdb
 
+// This library implements the data structure of the Constant Database proposed by Daniel J. Bernstein http://cr.yp.to/cdb.html
+
 import (
 	"io"
 	"hash"
@@ -10,7 +12,7 @@ const (
 	TABLE_NUM = 256
 )
 
-// CDB
+// CDB is an associative array: it maps strings (``keys'') to strings (``data'').
 type CDB struct {
 	h hash.Hash32
 }

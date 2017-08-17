@@ -4,9 +4,12 @@ import (
 	"io"
 	"hash"
 	"encoding/binary"
+	"bytes"
 )
 
-// hashTableRef
+// hashTableRef is a pointer that state a position and a length of the hash table
+// position is the starting byte position of the hash table.
+// The length is the number of slots in the hash table.
 type hashTableRef struct {
 	position, length uint32
 }
@@ -47,6 +50,12 @@ func (r *readerImpl) open() error {
 	return nil
 }
 
+//
+// A record is located as follows. Compute the hash value of the key in
+// the record. The hash value modulo 256 (TABLE_NUM) is the number of a hash table.
+// The hash value divided by 256, modulo the length of that table, is a
+// slot number. Probe that slot, the next higher slot, and so on, until
+// you find the record or run into an empty slot.
 func (r *readerImpl) Get(key []byte) ([]byte, error) {
 	r.hash.Write(key)
 	h := r.hash.Sum32()
@@ -62,15 +71,27 @@ func (r *readerImpl) Get(key []byte) ([]byte, error) {
 	)
 
 	k := (h >> 8) % ref.length
+	slotSize := calcSlotSize()
 
 	for j = 0; j < ref.length; j++ {
-		r.reader.Seek(int64(ref.position + k * 8), io.SeekStart)
+		r.reader.Seek(int64(ref.position + k * slotSize), io.SeekStart)
 
 		binary.Read(r.reader, binary.LittleEndian, &entry.hash)
 		binary.Read(r.reader, binary.LittleEndian, &entry.position)
 
+		if entry.position == 0 {
+			return nil, nil
+		}
+
 		if entry.hash == h {
-			return r.readValue(entry, key)
+			value, err := r.readValue(entry, key)
+			if err != nil {
+				return nil, err
+			}
+
+			if value != nil {
+				return value, nil
+			}
 		}
 
 		k = (k + 1) % ref.length
@@ -80,21 +101,43 @@ func (r *readerImpl) Get(key []byte) ([]byte, error) {
 }
 
 func (r *readerImpl) readValue(entry slot, key []byte) ([]byte, error) {
-	var valueSize uint32
+	var (
+		valueSize, keySize uint32
+		givenKeySize uint32 = uint32(len(key))
+	)
 
-	pos := entry.position + uint32(len(key)) + 4
+	pos := entry.position
 	r.reader.Seek(int64(pos), io.SeekStart)
 
-	err := binary.Read(r.reader, binary.LittleEndian, &valueSize)
+	err := binary.Read(r.reader, binary.LittleEndian, &keySize)
 	if err != nil {
 		return nil, err
 	}
 
-	data := make([]byte, valueSize)
-	err = binary.Read(r.reader, binary.LittleEndian, data)
+	if keySize != givenKeySize {
+		return nil, nil
+	}
+
+	recordKey := make([]byte, givenKeySize)
+	err = binary.Read(r.reader, binary.LittleEndian, &recordKey)
 	if err != nil {
 		return nil, err
 	}
 
-	return data, err
+	if bytes.Compare(recordKey, key) != 0 {
+		return nil, nil
+	}
+
+	err = binary.Read(r.reader, binary.LittleEndian, &valueSize)
+	if err != nil {
+		return nil, err
+	}
+
+	recordValue := make([]byte, valueSize)
+	err = binary.Read(r.reader, binary.LittleEndian, recordValue)
+	if err != nil {
+		return nil, err
+	}
+
+	return recordValue, err
 }
