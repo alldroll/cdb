@@ -39,18 +39,12 @@ func newWriter(writer io.WriteSeeker, h hash.Hash32) *writerImpl {
 
 //
 func (w *writerImpl) Put(key []byte, value []byte) error {
-
-	err := binary.Write(w.writer, binary.LittleEndian, uint32(len(key)))
+	err := writePair(w.writer, uint32(len(key)), uint32(len(value)))
 	if err != nil {
 		return err
 	}
 
 	err = binary.Write(w.writer, binary.LittleEndian, key)
-	if err != nil {
-		return err
-	}
-
-	err = binary.Write(w.writer, binary.LittleEndian, uint32(len(value)))
 	if err != nil {
 		return err
 	}
@@ -95,12 +89,7 @@ func (w *writerImpl) Close() error {
 		}
 
 		for _, slot := range slots {
-			err := binary.Write(w.writer, binary.LittleEndian, slot.hash)
-			if err != nil {
-				return err
-			}
-
-			err = binary.Write(w.writer, binary.LittleEndian, slot.position)
+			err := writePair(w.writer, slot.hash, slot.position)
 			if err != nil {
 				return err
 			}
@@ -121,12 +110,7 @@ func (w *writerImpl) Close() error {
 			pos = uint32(w.current)
 		}
 
-		err := binary.Write(w.writer, binary.LittleEndian, pos)
-		if err != nil {
-			return err
-		}
-
-		err = binary.Write(w.writer, binary.LittleEndian, n)
+		err := writePair(w.writer, pos, n)
 		if err != nil {
 			return err
 		}
@@ -145,4 +129,9 @@ func calcTablesRefsSize() uint32 {
 
 func calcSlotSize() uint32 {
 	return uint32(unsafe.Sizeof(slot{}))
+}
+
+func writePair(writer io.Writer, a, b uint32) error {
+	var pairBuf = []uint32 {a, b}
+	return binary.Write(writer, binary.LittleEndian, pairBuf)
 }

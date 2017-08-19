@@ -76,8 +76,7 @@ func (r *readerImpl) Get(key []byte) ([]byte, error) {
 	for j = 0; j < ref.length; j++ {
 		r.reader.Seek(int64(ref.position + k * slotSize), io.SeekStart)
 
-		binary.Read(r.reader, binary.LittleEndian, &entry.hash)
-		binary.Read(r.reader, binary.LittleEndian, &entry.position)
+		readPair(r.reader, &entry.hash, &entry.position)
 
 		if entry.position == 0 {
 			return nil, nil
@@ -102,14 +101,14 @@ func (r *readerImpl) Get(key []byte) ([]byte, error) {
 
 func (r *readerImpl) readValue(entry slot, key []byte) ([]byte, error) {
 	var (
-		valueSize, keySize uint32
+		keySize, valSize uint32
 		givenKeySize uint32 = uint32(len(key))
 	)
 
 	pos := entry.position
 	r.reader.Seek(int64(pos), io.SeekStart)
 
-	err := binary.Read(r.reader, binary.LittleEndian, &keySize)
+	err := readPair(r.reader, &keySize, &valSize)
 	if err != nil {
 		return nil, err
 	}
@@ -118,26 +117,27 @@ func (r *readerImpl) readValue(entry slot, key []byte) ([]byte, error) {
 		return nil, nil
 	}
 
-	recordKey := make([]byte, givenKeySize)
-	err = binary.Read(r.reader, binary.LittleEndian, &recordKey)
+	data := make([]byte, keySize + valSize)
+	err = binary.Read(r.reader, binary.LittleEndian, data)
 	if err != nil {
 		return nil, err
 	}
 
-	if bytes.Compare(recordKey, key) != 0 {
+	if bytes.Compare(data[:keySize], key) != 0 {
 		return nil, nil
 	}
 
-	err = binary.Read(r.reader, binary.LittleEndian, &valueSize)
+	return data[keySize:], err
+}
+
+func readPair(reader io.Reader, a, b *uint32) error {
+	pair := make([]uint32, 2, 2)
+
+	err := binary.Read(reader, binary.LittleEndian, pair)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	recordValue := make([]byte, valueSize)
-	err = binary.Read(r.reader, binary.LittleEndian, recordValue)
-	if err != nil {
-		return nil, err
-	}
-
-	return recordValue, err
+	*a, *b = pair[0], pair[1]
+	return nil
 }

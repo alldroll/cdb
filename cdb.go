@@ -28,8 +28,14 @@ type Reader interface {
 	Get(key []byte) ([]byte, error)
 }
 
-func New(h hash.Hash32) *CDB {
-	return &CDB{h}
+//
+func New() *CDB {
+	return &CDB{&hashImpl{}}
+}
+
+//
+func (cdb *CDB) SetHash(hash hash.Hash32) {
+	cdb.h = hash
 }
 
 // GetWriter

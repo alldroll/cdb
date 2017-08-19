@@ -11,7 +11,7 @@ func TestShouldReturnAllValues(t *testing.T) {
 	f, _ := os.Create("test.cdb")
 	defer f.Close()
 
-	handle := New(&hashImpl{})
+	handle := New()
 
 	cases := []struct{
 		key, value string
@@ -51,7 +51,7 @@ func TestShouldReturnNilOnNonExistingKeys(t *testing.T) {
 	defer f.Close()
 	defer os.Remove("test.cdb")
 
-	handle := New(&hashImpl{})
+	handle := New()
 
 	cases := []struct{
 		key, value string
@@ -104,7 +104,7 @@ func BenchmarkReaderImpl_Get(b *testing.B) {
 	defer f.Close()
 	defer os.Remove("test.cdb")
 
-	handle := New(&hashImpl{})
+	handle := New()
 	writer := handle.GetWriter(f)
 
 	keys := make([][]byte, n)
@@ -121,8 +121,7 @@ func BenchmarkReaderImpl_Get(b *testing.B) {
 	reader, _ := handle.GetReader(f)
 
 	for j := 0; j < b.N; j++ {
-		i := j % n
-		reader.Get(keys[i])
+		reader.Get(keys[j % n])
 	}
 }
 
@@ -131,7 +130,7 @@ func BenchmarkWriterImpl_Put(b *testing.B) {
 	defer f.Close()
 	defer os.Remove("test.cdb")
 
-	handle := New(&hashImpl{})
+	handle := New()
 	writer := handle.GetWriter(f)
 
 	for j := 0; j < b.N; j++ {

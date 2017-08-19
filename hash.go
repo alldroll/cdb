@@ -40,4 +40,3 @@ func (h *hashImpl) BlockSize() int {
 func (h *hashImpl) Size() int {
 	return size
 }
-
