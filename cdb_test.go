@@ -2,9 +2,9 @@ package cdb
 
 import (
 	"testing"
-	"io"
 	"os"
 	"strconv"
+	"sync"
 )
 
 func TestShouldReturnAllValues(t *testing.T) {
@@ -31,7 +31,6 @@ func TestShouldReturnAllValues(t *testing.T) {
 	}
 
 	writer.Close()
-	f.Seek(0, io.SeekStart)
 	reader, _ := handle.GetReader(f)
 
 	for _, c := range cases {
@@ -71,7 +70,6 @@ func TestShouldReturnNilOnNonExistingKeys(t *testing.T) {
 	}
 
 	writer.Close()
-	f.Seek(0, io.SeekStart)
 	reader, _ := handle.GetReader(f)
 
 	keys := [...]string{
@@ -96,6 +94,54 @@ func TestShouldReturnNilOnNonExistingKeys(t *testing.T) {
 	}
 }
 
+func TestConcurrentGet(t *testing.T) {
+	f, _ := os.Create("test.cdb")
+	defer f.Close()
+
+	handle := New()
+
+	cases := []struct{
+		key, value string
+	}{
+		{"key1", "value1"},
+		{"key2", "value2"},
+		{"key3", "value3"},
+		{"key4", "value4"},
+		{"key5", "value5"},
+		{"key6", "value6"},
+		{"key7", "value7"},
+	}
+
+	writer := handle.GetWriter(f)
+	for _, c := range cases {
+		writer.Put([]byte(c.key), []byte(c.value))
+	}
+
+	writer.Close()
+	reader, _ := handle.GetReader(f)
+
+	wg := sync.WaitGroup{}
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			for _, c := range cases {
+				value, err := reader.Get([]byte(c.key))
+				if err != nil {
+					t.Error(err)
+				}
+
+				if string(value) != c.value {
+					t.Errorf("Expected value %s, got %s", c.value, value)
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+}
+
 func BenchmarkReaderImpl_Get(b *testing.B) {
 	b.StopTimer()
 
@@ -114,8 +160,6 @@ func BenchmarkReaderImpl_Get(b *testing.B) {
 	}
 
 	writer.Close()
-	f.Seek(0, io.SeekStart)
-
 	b.StartTimer()
 
 	reader, _ := handle.GetReader(f)
