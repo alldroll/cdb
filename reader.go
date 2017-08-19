@@ -5,7 +5,7 @@ import (
 	"hash"
 	"encoding/binary"
 	"bytes"
-	"errors"
+	"sync"
 )
 
 // hashTableRef is a pointer that state a position and a length of the hash table
@@ -19,6 +19,7 @@ type readerImpl struct {
 	refs [TABLE_NUM]hashTableRef
 	reader io.ReaderAt
 	hash hash.Hash32
+	mutex sync.Mutex
 }
 
 func newReader(reader io.ReaderAt, h hash.Hash32) (*readerImpl, error) {
@@ -54,8 +55,7 @@ func (r *readerImpl) open() error {
 // slot number. Probe that slot, the next higher slot, and so on, until
 // you find the record or run into an empty slot.
 func (r *readerImpl) Get(key []byte) ([]byte, error) {
-	r.hash.Write(key)
-	h := r.hash.Sum32()
+	h := r.calcHash(key)
 	ref := r.refs[h % TABLE_NUM]
 
 	if ref.length == 0 {
@@ -94,6 +94,14 @@ func (r *readerImpl) Get(key []byte) ([]byte, error) {
 	return nil, nil
 }
 
+func (r *readerImpl) calcHash(key []byte) uint32 {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	r.hash.Write(key)
+	return r.hash.Sum32()
+}
+
 func (r *readerImpl) readValue(entry slot, key []byte) ([]byte, error) {
 	var (
 		keySize, valSize uint32
@@ -110,14 +118,10 @@ func (r *readerImpl) readValue(entry slot, key []byte) ([]byte, error) {
 	}
 
 	data := make([]byte, keySize + valSize)
-	n, err := r.reader.ReadAt(data, int64(entry.position + 8))
+	_, err = r.reader.ReadAt(data, int64(entry.position + 8))
 
 	if err != nil {
 		return nil, err
-	}
-
-	if uint32(n) != (keySize + valSize) {
-		return nil, errors.New("blablbla") //TODO describe error
 	}
 
 	if bytes.Compare(data[:keySize], key) != 0 {
@@ -130,13 +134,9 @@ func (r *readerImpl) readValue(entry slot, key []byte) ([]byte, error) {
 func (r *readerImpl) readPair(pos uint32, a, b *uint32) error {
 	pair := make([]byte, 8, 8)
 
-	n, err := r.reader.ReadAt(pair, int64(pos))
+	_, err := r.reader.ReadAt(pair, int64(pos))
 	if err != nil {
 		return err
-	}
-
-	if n != 8 {
-		return errors.New("bla bla bla") // TODO describe error
 	}
 
 	*a, *b = binary.LittleEndian.Uint32(pair), binary.LittleEndian.Uint32(pair[4:])
