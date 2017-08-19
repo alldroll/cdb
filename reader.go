@@ -5,6 +5,7 @@ import (
 	"hash"
 	"encoding/binary"
 	"bytes"
+	"errors"
 )
 
 // hashTableRef is a pointer that state a position and a length of the hash table
@@ -16,11 +17,11 @@ type hashTableRef struct {
 
 type readerImpl struct {
 	refs [TABLE_NUM]hashTableRef
-	reader io.ReadSeeker
+	reader io.ReaderAt
 	hash hash.Hash32
 }
 
-func newReader(reader io.ReadSeeker, h hash.Hash32) (*readerImpl, error) {
+func newReader(reader io.ReaderAt, h hash.Hash32) (*readerImpl, error) {
 	r := &readerImpl{
 		reader: reader,
 		hash: h,
@@ -35,16 +36,12 @@ func newReader(reader io.ReadSeeker, h hash.Hash32) (*readerImpl, error) {
 }
 
 func (r *readerImpl) open() error {
-	for i, _ := range r.refs {
-		err := binary.Read(r.reader, binary.LittleEndian, &r.refs[i].position)
-		if err != nil {
-			return err
-		}
+	buf := make([]byte, calcTablesRefsSize())
+	r.reader.ReadAt(buf, 0)
 
-		err = binary.Read(r.reader, binary.LittleEndian, &r.refs[i].length)
-		if err != nil {
-			return err
-		}
+	for i, _ := range r.refs {
+		j := i * 8
+		r.refs[i].position, r.refs[i].length = binary.LittleEndian.Uint32(buf[j: j+4]), binary.LittleEndian.Uint32(buf[j+4: j+8])
 	}
 
 	return nil
@@ -74,9 +71,7 @@ func (r *readerImpl) Get(key []byte) ([]byte, error) {
 	slotSize := calcSlotSize()
 
 	for j = 0; j < ref.length; j++ {
-		r.reader.Seek(int64(ref.position + k * slotSize), io.SeekStart)
-
-		readPair(r.reader, &entry.hash, &entry.position)
+		r.readPair(ref.position + k * slotSize, &entry.hash, &entry.position)
 
 		if entry.position == 0 {
 			return nil, nil
@@ -105,10 +100,7 @@ func (r *readerImpl) readValue(entry slot, key []byte) ([]byte, error) {
 		givenKeySize uint32 = uint32(len(key))
 	)
 
-	pos := entry.position
-	r.reader.Seek(int64(pos), io.SeekStart)
-
-	err := readPair(r.reader, &keySize, &valSize)
+	err := r.readPair(entry.position, &keySize, &valSize)
 	if err != nil {
 		return nil, err
 	}
@@ -118,9 +110,14 @@ func (r *readerImpl) readValue(entry slot, key []byte) ([]byte, error) {
 	}
 
 	data := make([]byte, keySize + valSize)
-	err = binary.Read(r.reader, binary.LittleEndian, data)
+	n, err := r.reader.ReadAt(data, int64(entry.position + 8))
+
 	if err != nil {
 		return nil, err
+	}
+
+	if uint32(n) != (keySize + valSize) {
+		return nil, errors.New("blablbla") //TODO describe error
 	}
 
 	if bytes.Compare(data[:keySize], key) != 0 {
@@ -130,14 +127,18 @@ func (r *readerImpl) readValue(entry slot, key []byte) ([]byte, error) {
 	return data[keySize:], err
 }
 
-func readPair(reader io.Reader, a, b *uint32) error {
-	pair := make([]uint32, 2, 2)
+func (r *readerImpl) readPair(pos uint32, a, b *uint32) error {
+	pair := make([]byte, 8, 8)
 
-	err := binary.Read(reader, binary.LittleEndian, pair)
+	n, err := r.reader.ReadAt(pair, int64(pos))
 	if err != nil {
 		return err
 	}
 
-	*a, *b = pair[0], pair[1]
+	if n != 8 {
+		return errors.New("bla bla bla") // TODO describe error
+	}
+
+	*a, *b = binary.LittleEndian.Uint32(pair), binary.LittleEndian.Uint32(pair[4:])
 	return nil
 }

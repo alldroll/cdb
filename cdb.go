@@ -43,6 +43,6 @@ func (cdb *CDB) GetWriter(writer io.WriteSeeker) Writer {
 	return newWriter(writer, cdb.h)
 }
 
-func (cdb *CDB) GetReader(reader io.ReadSeeker) (Reader, error) {
+func (cdb *CDB) GetReader(reader io.ReaderAt) (Reader, error) {
 	return newReader(reader, cdb.h)
 }
