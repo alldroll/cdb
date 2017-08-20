@@ -24,17 +24,25 @@ type writerImpl struct {
 }
 
 //
-func newWriter(writer io.WriteSeeker, h hash.Hash32) *writerImpl {
+func newWriter(writer io.WriteSeeker, h hash.Hash32) (*writerImpl, error) {
 	startPosition := int64(calcTablesRefsSize())
-	begin, _ := writer.Seek(0, io.SeekCurrent)
-	writer.Seek(startPosition, io.SeekStart)
+	begin, err := writer.Seek(0, io.SeekCurrent)
+
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = writer.Seek(startPosition, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
 
 	return &writerImpl{
 		writer: writer,
 		hash: h,
 		begin: begin,
 		current: startPosition,
-	}
+	}, nil
 }
 
 //

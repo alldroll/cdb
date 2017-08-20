@@ -10,6 +10,7 @@ import (
 func TestShouldReturnAllValues(t *testing.T) {
 	f, _ := os.Create("test.cdb")
 	defer f.Close()
+	defer os.Remove("test.cdb")
 
 	handle := New()
 
@@ -25,7 +26,11 @@ func TestShouldReturnAllValues(t *testing.T) {
 		{"key7", "value7"},
 	}
 
-	writer := handle.GetWriter(f)
+	writer, err := handle.GetWriter(f)
+	if err != nil {
+		t.Error(err)
+	}
+
 	for _, c := range cases {
 		writer.Put([]byte(c.key), []byte(c.value))
 	}
@@ -64,7 +69,11 @@ func TestShouldReturnNilOnNonExistingKeys(t *testing.T) {
 		{"key7", "value7"},
 	}
 
-	writer := handle.GetWriter(f)
+	writer, err := handle.GetWriter(f)
+	if err != nil {
+		t.Error(err)
+	}
+
 	for _, c := range cases {
 		writer.Put([]byte(c.key), []byte(c.value))
 	}
@@ -97,6 +106,7 @@ func TestShouldReturnNilOnNonExistingKeys(t *testing.T) {
 func TestConcurrentGet(t *testing.T) {
 	f, _ := os.Create("test.cdb")
 	defer f.Close()
+	defer os.Remove("test.cdb")
 
 	handle := New()
 
@@ -112,7 +122,11 @@ func TestConcurrentGet(t *testing.T) {
 		{"key7", "value7"},
 	}
 
-	writer := handle.GetWriter(f)
+	writer, err := handle.GetWriter(f)
+	if err != nil {
+		t.Error(err)
+	}
+
 	for _, c := range cases {
 		writer.Put([]byte(c.key), []byte(c.value))
 	}
@@ -151,7 +165,7 @@ func BenchmarkReaderImpl_Get(b *testing.B) {
 	defer os.Remove("test.cdb")
 
 	handle := New()
-	writer := handle.GetWriter(f)
+	writer, _ := handle.GetWriter(f)
 
 	keys := make([][]byte, n)
 	for i := 0; i < n; i++ {
@@ -175,7 +189,7 @@ func BenchmarkWriterImpl_Put(b *testing.B) {
 	defer os.Remove("test.cdb")
 
 	handle := New()
-	writer := handle.GetWriter(f)
+	writer, _ := handle.GetWriter(f)
 
 	for j := 0; j < b.N; j++ {
 		key := []byte(strconv.Itoa(j))

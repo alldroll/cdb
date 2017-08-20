@@ -39,7 +39,7 @@ func (cdb *CDB) SetHash(hash hash.Hash32) {
 }
 
 // GetWriter
-func (cdb *CDB) GetWriter(writer io.WriteSeeker) Writer {
+func (cdb *CDB) GetWriter(writer io.WriteSeeker) (Writer, error) {
 	return newWriter(writer, cdb.h)
 }
 
