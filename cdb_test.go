@@ -156,6 +156,31 @@ func TestConcurrentGet(t *testing.T) {
 	wg.Wait()
 }
 
+func BenchmarkCDB_GetReader(b *testing.B) {
+	b.StopTimer()
+
+	n := 1000
+	f, _ := os.Create("test.cdb")
+	defer f.Close()
+	defer os.Remove("test.cdb")
+
+	handle := New()
+	writer, _ := handle.GetWriter(f)
+
+	keys := make([][]byte, n)
+	for i := 0; i < n; i++ {
+		keys[i] = []byte(strconv.Itoa(i))
+		writer.Put(keys[i], keys[i])
+	}
+
+	writer.Close()
+	b.StartTimer()
+
+	for j := 0; j < b.N; j++ {
+		handle.GetReader(f)
+	}
+}
+
 func BenchmarkReaderImpl_Get(b *testing.B) {
 	b.StopTimer()
 
