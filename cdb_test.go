@@ -1,10 +1,10 @@
 package cdb
 
 import (
-	"testing"
 	"os"
 	"strconv"
 	"sync"
+	"testing"
 )
 
 func TestShouldReturnAllValues(t *testing.T) {
@@ -14,7 +14,7 @@ func TestShouldReturnAllValues(t *testing.T) {
 
 	handle := New()
 
-	cases := []struct{
+	cases := []struct {
 		key, value string
 	}{
 		{"key1", "value1"},
@@ -57,7 +57,7 @@ func TestShouldReturnNilOnNonExistingKeys(t *testing.T) {
 
 	handle := New()
 
-	cases := []struct{
+	cases := []struct {
 		key, value string
 	}{
 		{"key1", "value1"},
@@ -110,7 +110,7 @@ func TestConcurrentGet(t *testing.T) {
 
 	handle := New()
 
-	cases := []struct{
+	cases := []struct {
 		key, value string
 	}{
 		{"key1", "value1"},
@@ -204,7 +204,7 @@ func BenchmarkReaderImpl_Get(b *testing.B) {
 	reader, _ := handle.GetReader(f)
 
 	for j := 0; j < b.N; j++ {
-		reader.Get(keys[j % n])
+		reader.Get(keys[j%n])
 	}
 }
 

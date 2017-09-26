@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"hash"
 	"unsafe"
+	"bufio"
 )
 
 // slot (bucket) is ..
@@ -19,6 +20,7 @@ type hashTable []slot
 type writerImpl struct {
 	tables [TABLE_NUM]hashTable
 	writer io.WriteSeeker
+	buffer *bufio.Writer
 	hash hash.Hash32
 	begin, current int64
 }
@@ -39,6 +41,7 @@ func newWriter(writer io.WriteSeeker, h hash.Hash32) (*writerImpl, error) {
 
 	return &writerImpl{
 		writer: writer,
+		buffer: bufio.NewWriter(writer),
 		hash: h,
 		begin: begin,
 		current: startPosition,
@@ -47,17 +50,17 @@ func newWriter(writer io.WriteSeeker, h hash.Hash32) (*writerImpl, error) {
 
 //
 func (w *writerImpl) Put(key []byte, value []byte) error {
-	err := writePair(w.writer, uint32(len(key)), uint32(len(value)))
+	err := writePair(w.buffer, uint32(len(key)), uint32(len(value)))
 	if err != nil {
 		return err
 	}
 
-	err = binary.Write(w.writer, binary.LittleEndian, key)
+	err = binary.Write(w.buffer, binary.LittleEndian, key)
 	if err != nil {
 		return err
 	}
 
-	err = binary.Write(w.writer, binary.LittleEndian, value)
+	err = binary.Write(w.buffer, binary.LittleEndian, value)
 	if err != nil {
 		return err
 	}
@@ -76,6 +79,8 @@ func (w *writerImpl) Put(key []byte, value []byte) error {
 
 //
 func (w *writerImpl) Close() error {
+	w.buffer.Flush()
+
 	for _, table := range w.tables {
 		n := uint32(len(table) << 1)
 		if n == 0 {
