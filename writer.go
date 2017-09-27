@@ -13,10 +13,10 @@ type slot struct {
 	hash, position uint32
 }
 
-// hashTable is a linearly probed open hash table
+// hashTable is a linearly probed initialize hash table
 type hashTable []slot
 
-// writerImpl
+// writerImpl . This is not thread safe implementation
 type writerImpl struct {
 	tables [TABLE_NUM]hashTable
 	writer io.WriteSeeker

@@ -17,32 +17,36 @@ type CDB struct {
 	h hash.Hash32
 }
 
-// Writer is ....
+// Writer provides API for creating database.
 type Writer interface {
+	// Put saves new associated pair <key, value> into databases. Returns not nil error on failure.
 	Put(key []byte, value []byte) error
+	// Commit database, make it possible for reading.
 	Close() error
 }
 
-// Reader is ....
+// Reader provides API for getting values by given keys
 type Reader interface {
+	// Get returns value associated with given key or returns nil if there is no associations.
 	Get(key []byte) ([]byte, error)
 }
 
-//
+// New returns new instance of CDB struct.
 func New() *CDB {
 	return &CDB{&hashImpl{}}
 }
 
-//
+// SetHash tells cdb to use given hash function for calculations.
 func (cdb *CDB) SetHash(hash hash.Hash32) {
 	cdb.h = hash
 }
 
-// GetWriter
+// GetWriter returns new Writer object.
 func (cdb *CDB) GetWriter(writer io.WriteSeeker) (Writer, error) {
 	return newWriter(writer, cdb.h)
 }
 
+// GetReader returns new Reader object.
 func (cdb *CDB) GetReader(reader io.ReaderAt) (Reader, error) {
 	return newReader(reader, cdb.h)
 }

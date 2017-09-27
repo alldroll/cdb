@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"bytes"
 	"sync"
+	"errors"
 )
 
 // hashTableRef is a pointer that state a position and a length of the hash table
@@ -15,6 +16,7 @@ type hashTableRef struct {
 	position, length uint32
 }
 
+// readerImpl ... readerImpl can be share between multiple goroutines. All methods are thread safe
 type readerImpl struct {
 	refs [TABLE_NUM]hashTableRef
 	reader io.ReaderAt
@@ -22,13 +24,14 @@ type readerImpl struct {
 	mutex sync.Mutex
 }
 
+// newReader return new readerImpl object on success, otherwise return nil and error
 func newReader(reader io.ReaderAt, h hash.Hash32) (*readerImpl, error) {
 	r := &readerImpl{
 		reader: reader,
 		hash: h,
 	}
 
-	err := r.open()
+	err := r.initialize()
 	if err != nil {
 		return nil, err
 	}
@@ -36,9 +39,13 @@ func newReader(reader io.ReaderAt, h hash.Hash32) (*readerImpl, error) {
 	return r, nil
 }
 
-func (r *readerImpl) open() error {
+// initialize reads hashTableRefs from r.reader
+func (r *readerImpl) initialize() error {
 	buf := make([]byte, calcTablesRefsSize())
-	r.reader.ReadAt(buf, 0)
+	_, err := r.reader.ReadAt(buf, 0)
+	if err != nil {
+		return errors.New("Invalid db header, impossible to read hashTableRefs structures")
+	}
 
 	for i, _ := range r.refs {
 		j := i * 8
@@ -48,12 +55,13 @@ func (r *readerImpl) open() error {
 	return nil
 }
 
+// A record is located as follows:
+// * Compute the hash value of the key in the record.
+// * The hash value modulo 256 (TABLE_NUM) is the number of a hash table.
+// * The hash value divided by 256, modulo the length of that table, is a slot number.
+// * Probe that slot, the next higher slot, and so on, until you find the record or run into an empty slot.
 //
-// A record is located as follows. Compute the hash value of the key in
-// the record. The hash value modulo 256 (TABLE_NUM) is the number of a hash table.
-// The hash value divided by 256, modulo the length of that table, is a
-// slot number. Probe that slot, the next higher slot, and so on, until
-// you find the record or run into an empty slot.
+// Get returns value for given key.
 func (r *readerImpl) Get(key []byte) ([]byte, error) {
 	h := r.calcHash(key)
 	ref := r.refs[h % TABLE_NUM]
@@ -94,6 +102,7 @@ func (r *readerImpl) Get(key []byte) ([]byte, error) {
 	return nil, nil
 }
 
+// calcHash returns hash value of given key
 func (r *readerImpl) calcHash(key []byte) uint32 {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
@@ -102,6 +111,7 @@ func (r *readerImpl) calcHash(key []byte) uint32 {
 	return r.hash.Sum32()
 }
 
+// readValue returns value of given entry if entry key is same with given key
 func (r *readerImpl) readValue(entry slot, key []byte) ([]byte, error) {
 	var (
 		keySize, valSize uint32
@@ -131,6 +141,7 @@ func (r *readerImpl) readValue(entry slot, key []byte) ([]byte, error) {
 	return data[keySize:], err
 }
 
+// readPair reads from r.reader uint_32 pair if possible. Returns not nil error on failure
 func (r *readerImpl) readPair(pos uint32, a, b *uint32) error {
 	pair := make([]byte, 8, 8)
 
