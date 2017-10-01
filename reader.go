@@ -24,6 +24,7 @@ type readerImpl struct {
 	mutex sync.Mutex
 }
 
+
 // newReader return new readerImpl object on success, otherwise return nil and error
 func newReader(reader io.ReaderAt, h hash.Hash32) (*readerImpl, error) {
 	r := &readerImpl{
@@ -100,6 +101,24 @@ func (r *readerImpl) Get(key []byte) ([]byte, error) {
 	}
 
 	return nil, nil
+}
+
+func (r *readerImpl) Iterator() Iterator {
+	var endPos uint32
+	for _, ref := range r.refs {
+		if ref.position != 0 {
+			endPos = ref.position
+			break
+		}
+	}
+
+	return &iteratorImpl{
+		calcTablesRefsSize(),
+		endPos,
+		r,
+		nil,
+		nil,
+	}
 }
 
 // calcHash returns hash value of given key

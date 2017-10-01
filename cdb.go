@@ -25,10 +25,22 @@ type Writer interface {
 	Close() error
 }
 
-// Reader provides API for getting values by given keys
+// Reader provides API for getting values by given keys. All methods are thread safe
 type Reader interface {
 	// Get returns value associated with given key or returns nil if there is no associations.
 	Get(key []byte) ([]byte, error)
+	// Iterator returns new Iterator object
+	Iterator() Iterator
+}
+
+// Iterator provides API for walking through database's records. It is not thread safe
+type Iterator interface {
+	// Next moves iterator to the next record. Returns true on success otherwise false
+	Next() (bool, error)
+	// Value returns value of current record. Returns nil if iterator is not valid
+	Value() []byte
+	// Key returns key of current record. Returns nil if iterator is not valid
+	Key() []byte
 }
 
 // New returns new instance of CDB struct.
