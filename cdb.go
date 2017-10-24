@@ -41,6 +41,8 @@ type Iterator interface {
 	Value() []byte
 	// Key returns key of current record. Returns nil if iterator is not valid
 	Key() []byte
+	// IsDereferencable detects is Valid Iterator
+	IsDereferencable() bool
 }
 
 // New returns new instance of CDB struct.

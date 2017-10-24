@@ -1,12 +1,12 @@
 package cdb
 
 import (
-	"io"
-	"hash"
-	"encoding/binary"
 	"bytes"
-	"sync"
+	"encoding/binary"
 	"errors"
+	"hash"
+	"io"
+	"sync"
 )
 
 // hashTableRef is a pointer that state a position and a length of the hash table
@@ -18,18 +18,17 @@ type hashTableRef struct {
 
 // readerImpl ... readerImpl can be share between multiple goroutines. All methods are thread safe
 type readerImpl struct {
-	refs [TABLE_NUM]hashTableRef
+	refs   [TABLE_NUM]hashTableRef
 	reader io.ReaderAt
-	hash hash.Hash32
-	mutex sync.Mutex
+	hash   hash.Hash32
+	mutex  sync.Mutex
 }
-
 
 // newReader return new readerImpl object on success, otherwise return nil and error
 func newReader(reader io.ReaderAt, h hash.Hash32) (*readerImpl, error) {
 	r := &readerImpl{
 		reader: reader,
-		hash: h,
+		hash:   h,
 	}
 
 	err := r.initialize()
@@ -50,7 +49,7 @@ func (r *readerImpl) initialize() error {
 
 	for i, _ := range r.refs {
 		j := i * 8
-		r.refs[i].position, r.refs[i].length = binary.LittleEndian.Uint32(buf[j: j+4]), binary.LittleEndian.Uint32(buf[j+4: j+8])
+		r.refs[i].position, r.refs[i].length = binary.LittleEndian.Uint32(buf[j:j+4]), binary.LittleEndian.Uint32(buf[j+4:j+8])
 	}
 
 	return nil
@@ -65,7 +64,7 @@ func (r *readerImpl) initialize() error {
 // Get returns value for given key.
 func (r *readerImpl) Get(key []byte) ([]byte, error) {
 	h := r.calcHash(key)
-	ref := r.refs[h % TABLE_NUM]
+	ref := r.refs[h%TABLE_NUM]
 
 	if ref.length == 0 {
 		return nil, nil
@@ -73,14 +72,14 @@ func (r *readerImpl) Get(key []byte) ([]byte, error) {
 
 	var (
 		entry slot
-		j uint32
+		j     uint32
 	)
 
 	k := (h >> 8) % ref.length
 	slotSize := calcSlotSize()
 
 	for j = 0; j < ref.length; j++ {
-		r.readPair(ref.position + k * slotSize, &entry.hash, &entry.position)
+		r.readPair(ref.position+k*slotSize, &entry.hash, &entry.position)
 
 		if entry.position == 0 {
 			return nil, nil
@@ -134,7 +133,7 @@ func (r *readerImpl) calcHash(key []byte) uint32 {
 func (r *readerImpl) readValue(entry slot, key []byte) ([]byte, error) {
 	var (
 		keySize, valSize uint32
-		givenKeySize uint32 = uint32(len(key))
+		givenKeySize     uint32 = uint32(len(key))
 	)
 
 	err := r.readPair(entry.position, &keySize, &valSize)
@@ -146,8 +145,8 @@ func (r *readerImpl) readValue(entry slot, key []byte) ([]byte, error) {
 		return nil, nil
 	}
 
-	data := make([]byte, keySize + valSize)
-	_, err = r.reader.ReadAt(data, int64(entry.position + 8))
+	data := make([]byte, keySize+valSize)
+	_, err = r.reader.ReadAt(data, int64(entry.position+8))
 
 	if err != nil {
 		return nil, err

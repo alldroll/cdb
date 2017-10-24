@@ -7,7 +7,7 @@ type iteratorImpl struct {
 }
 
 func (i *iteratorImpl) Next() (bool, error) {
-	if i.position >= i.endPosition {
+	if i.IsDereferencable() {
 		i.key, i.value = nil, nil
 		return false, nil
 	}
@@ -37,4 +37,8 @@ func (i *iteratorImpl) Value() []byte {
 
 func (i *iteratorImpl) Key() []byte {
 	return i.key
+}
+
+func (i *iteratorImpl) IsDereferencable() bool {
+	return i.position >= i.endPosition
 }
