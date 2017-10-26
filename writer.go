@@ -4,7 +4,6 @@ import (
 	"io"
 	"encoding/binary"
 	"hash"
-	"unsafe"
 	"bufio"
 )
 
@@ -18,7 +17,7 @@ type hashTable []slot
 
 // writerImpl . This is not thread safe implementation
 type writerImpl struct {
-	tables [TABLE_NUM]hashTable
+	tables [tableNum]hashTable
 	writer io.WriteSeeker
 	buffer *bufio.Writer
 	hash hash.Hash32
@@ -27,7 +26,7 @@ type writerImpl struct {
 
 //
 func newWriter(writer io.WriteSeeker, h hash.Hash32) (*writerImpl, error) {
-	startPosition := int64(calcTablesRefsSize())
+	startPosition := int64(tablesRefsSize)
 	begin, err := writer.Seek(0, io.SeekCurrent)
 
 	if err != nil {
@@ -50,7 +49,12 @@ func newWriter(writer io.WriteSeeker, h hash.Hash32) (*writerImpl, error) {
 
 //
 func (w *writerImpl) Put(key []byte, value []byte) error {
-	err := writePair(w.buffer, uint32(len(key)), uint32(len(value)))
+	lenKey, lenValue := len(key), len(value)
+	if lenKey > maxUint || lenValue > maxUint {
+		return OutOfMemory
+	}
+
+	err := writePair(w.buffer, uint32(lenKey), uint32(lenValue))
 	if err != nil {
 		return err
 	}
@@ -68,11 +72,24 @@ func (w *writerImpl) Put(key []byte, value []byte) error {
 	w.hash.Write(key)
 	h := w.hash.Sum32()
 
-	table := w.tables[h % TABLE_NUM]
+	table := w.tables[h %tableNum]
 	table = append(table, slot{h, uint32(w.current)})
-	w.tables[h % TABLE_NUM] = table
+	w.tables[h %tableNum] = table
 
-	w.current += int64(4 + len(key) + 4 + len(value))
+	err = w.addPos(8)
+	if err != nil {
+		return err
+	}
+
+	err = w.addPos(lenKey)
+	if err != nil {
+		return err
+	}
+
+	err = w.addPos(lenValue)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -114,34 +131,38 @@ func (w *writerImpl) Close() error {
 
 	var pos uint32 = 0
 
-	slotSize := calcSlotSize()
+	slotSize := slotSize
 	for _, table := range w.tables {
-		n := uint32(len(table) << 1)
+		n := len(table) << 1
 		if n == 0 {
 			pos = 0
 		} else {
 			pos = uint32(w.current)
 		}
 
-		err := writePair(w.writer, pos, n)
+		err := writePair(w.writer, pos, uint32(n))
 		if err != nil {
 			return err
 		}
 
-		w.current += int64(slotSize * n)
+		err = w.addPos(slotSize * n)
+		if err != nil {
+			return err
+		}
 	}
 
 	w.writer.Seek(offset, io.SeekStart)
 	return nil
 }
 
-// calcTablesRefsSize
-func calcTablesRefsSize() uint32 {
-	return uint32(unsafe.Sizeof(hashTableRef{}) * TABLE_NUM)
-}
+func (w *writerImpl) addPos(len int) error {
+	newPos := w.current + int64(len)
+	if newPos > maxUint {
+		return OutOfMemory
+	}
 
-func calcSlotSize() uint32 {
-	return uint32(unsafe.Sizeof(slot{}))
+	w.current = newPos
+	return nil
 }
 
 func writePair(writer io.Writer, a, b uint32) error {

@@ -18,7 +18,7 @@ type hashTableRef struct {
 
 // readerImpl ... readerImpl can be share between multiple goroutines. All methods are thread safe
 type readerImpl struct {
-	refs   [TABLE_NUM]hashTableRef
+	refs   [tableNum]hashTableRef
 	reader io.ReaderAt
 	hash   hash.Hash32
 	mutex  sync.Mutex
@@ -41,7 +41,7 @@ func newReader(reader io.ReaderAt, h hash.Hash32) (*readerImpl, error) {
 
 // initialize reads hashTableRefs from r.reader
 func (r *readerImpl) initialize() error {
-	buf := make([]byte, calcTablesRefsSize())
+	buf := make([]byte, tablesRefsSize)
 	_, err := r.reader.ReadAt(buf, 0)
 	if err != nil {
 		return errors.New("Invalid db header, impossible to read hashTableRefs structures")
@@ -57,14 +57,14 @@ func (r *readerImpl) initialize() error {
 
 // A record is located as follows:
 // * Compute the hash value of the key in the record.
-// * The hash value modulo 256 (TABLE_NUM) is the number of a hash table.
+// * The hash value modulo 256 (tableNum) is the number of a hash table.
 // * The hash value divided by 256, modulo the length of that table, is a slot number.
 // * Probe that slot, the next higher slot, and so on, until you find the record or run into an empty slot.
 //
 // Get returns value for given key.
 func (r *readerImpl) Get(key []byte) ([]byte, error) {
 	h := r.calcHash(key)
-	ref := r.refs[h%TABLE_NUM]
+	ref := r.refs[h%tableNum]
 
 	if ref.length == 0 {
 		return nil, nil
@@ -76,7 +76,6 @@ func (r *readerImpl) Get(key []byte) ([]byte, error) {
 	)
 
 	k := (h >> 8) % ref.length
-	slotSize := calcSlotSize()
 
 	for j = 0; j < ref.length; j++ {
 		r.readPair(ref.position+k*slotSize, &entry.hash, &entry.position)
@@ -112,7 +111,7 @@ func (r *readerImpl) Iterator() Iterator {
 	}
 
 	return &iteratorImpl{
-		calcTablesRefsSize(),
+		tablesRefsSize,
 		endPos,
 		r,
 		nil,

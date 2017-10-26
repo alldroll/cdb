@@ -5,12 +5,22 @@ package cdb
 import (
 	"io"
 	"hash"
+	"errors"
 )
 
 const (
 	// Number of hash tables
-	TABLE_NUM = 256
+	tableNum = 256
+	// Maximum value of uint32
+	maxUint = 0xffffffff
+	// Size of 256 tables refs
+	tablesRefsSize = tableNum * 8
+	// Size of hash table slot
+	slotSize = 8
 )
+
+// TODO describe me
+var OutOfMemory = errors.New("OutOfMemory")
 
 // CDB is an associative array: it maps strings (``keys'') to strings (``data'').
 type CDB struct {
