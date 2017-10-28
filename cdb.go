@@ -19,8 +19,8 @@ const (
 	slotSize = 8
 )
 
-// TODO describe me
-var OutOfMemory = errors.New("OutOfMemory")
+// OutOfMemory
+var OutOfMemory = errors.New("OutOfMemory. CDB can handle any database up to 4 gigabytes")
 
 // CDB is an associative array: it maps strings (``keys'') to strings (``data'').
 type CDB struct {
@@ -37,13 +37,15 @@ type Writer interface {
 
 // Reader provides API for getting values by given keys. All methods are thread safe
 type Reader interface {
-	// Get returns value associated with given key or returns nil if there is no associations.
+	// Get returns first value associated with given key or returns nil if there is no associations.
 	Get(key []byte) ([]byte, error)
-	// Iterator returns new Iterator object
-	Iterator() Iterator
+	// Iterator returns new Iterator object that points on first record
+	Iterator() (Iterator, error)
+	// IteratorAt returns new Iterator object that points on first record associated with given key
+	IteratorAt(key []byte) (Iterator, error)
 }
 
-// Iterator provides API for walking through database's records. It is not thread safe
+// Iterator provides API for walking through database's records. Do not share object between multiple goroutines
 type Iterator interface {
 	// Next moves iterator to the next record. Returns true on success otherwise false
 	Next() (bool, error)
@@ -52,7 +54,7 @@ type Iterator interface {
 	// Key returns key of current record. Returns nil if iterator is not valid
 	Key() []byte
 	// IsDereferencable detects is Valid Iterator
-	IsDereferencable() bool
+	HasNext() bool
 }
 
 // New returns new instance of CDB struct.

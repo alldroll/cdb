@@ -22,6 +22,7 @@ type readerImpl struct {
 	reader io.ReaderAt
 	hash   hash.Hash32
 	mutex  sync.Mutex
+	endPos uint32
 }
 
 // newReader return new readerImpl object on success, otherwise return nil and error
@@ -52,6 +53,13 @@ func (r *readerImpl) initialize() error {
 		r.refs[i].position, r.refs[i].length = binary.LittleEndian.Uint32(buf[j:j+4]), binary.LittleEndian.Uint32(buf[j+4:j+8])
 	}
 
+	for _, ref := range r.refs {
+		if ref.position != 0 {
+			r.endPos = ref.position
+			break
+		}
+	}
+
 	return nil
 }
 
@@ -61,10 +69,36 @@ func (r *readerImpl) initialize() error {
 // * The hash value divided by 256, modulo the length of that table, is a slot number.
 // * Probe that slot, the next higher slot, and so on, until you find the record or run into an empty slot.
 //
-// Get returns value for given key.
+// Get returns first value for given key.
 func (r *readerImpl) Get(key []byte) ([]byte, error) {
+	iterator, err := r.IteratorAt(key)
+	if err != nil {
+		return nil, err
+	}
+
+	if iterator == nil {
+		return nil, nil
+	}
+
+	return iterator.Value(), nil
+}
+
+// Iterator returns new Iterator object that points on first record
+func (r *readerImpl) Iterator() (Iterator, error) {
+	iterator := r.newIterator(tablesRefsSize, nil, nil)
+
+	_, err := iterator.Next()
+	if err != nil {
+		return nil, err
+	}
+
+	return iterator, nil
+}
+
+// IteratorAt returns new Iterator object that points on first record associated with given key
+func (r *readerImpl) IteratorAt(key []byte) (Iterator, error) {
 	h := r.calcHash(key)
-	ref := r.refs[h%tableNum]
+	ref := r.refs[h % tableNum]
 
 	if ref.length == 0 {
 		return nil, nil
@@ -78,7 +112,7 @@ func (r *readerImpl) Get(key []byte) ([]byte, error) {
 	k := (h >> 8) % ref.length
 
 	for j = 0; j < ref.length; j++ {
-		r.readPair(ref.position+k*slotSize, &entry.hash, &entry.position)
+		r.readPair(ref.position + k * slotSize, &entry.hash, &entry.position)
 
 		if entry.position == 0 {
 			return nil, nil
@@ -91,7 +125,7 @@ func (r *readerImpl) Get(key []byte) ([]byte, error) {
 			}
 
 			if value != nil {
-				return value, nil
+				return r.newIterator(entry.position + uint32(len(key)) + uint32(len(value) + 8), key, value), nil
 			}
 		}
 
@@ -99,24 +133,6 @@ func (r *readerImpl) Get(key []byte) ([]byte, error) {
 	}
 
 	return nil, nil
-}
-
-func (r *readerImpl) Iterator() Iterator {
-	var endPos uint32
-	for _, ref := range r.refs {
-		if ref.position != 0 {
-			endPos = ref.position
-			break
-		}
-	}
-
-	return &iteratorImpl{
-		tablesRefsSize,
-		endPos,
-		r,
-		nil,
-		nil,
-	}
 }
 
 // calcHash returns hash value of given key
@@ -145,7 +161,7 @@ func (r *readerImpl) readValue(entry slot, key []byte) ([]byte, error) {
 	}
 
 	data := make([]byte, keySize+valSize)
-	_, err = r.reader.ReadAt(data, int64(entry.position+8))
+	_, err = r.reader.ReadAt(data, int64(entry.position + 8))
 
 	if err != nil {
 		return nil, err
@@ -155,7 +171,7 @@ func (r *readerImpl) readValue(entry slot, key []byte) ([]byte, error) {
 		return nil, nil
 	}
 
-	return data[keySize:], err
+	return data[keySize:], nil
 }
 
 // readPair reads from r.reader uint_32 pair if possible. Returns not nil error on failure
@@ -169,4 +185,15 @@ func (r *readerImpl) readPair(pos uint32, a, b *uint32) error {
 
 	*a, *b = binary.LittleEndian.Uint32(pair), binary.LittleEndian.Uint32(pair[4:])
 	return nil
+}
+
+// newIterator returns new instance of Iterator object
+func (r *readerImpl) newIterator(position uint32, key, value []byte) Iterator {
+	return &iteratorImpl{
+		position,
+		r,
+		key,
+		value,
+		r.endPos > position,
+	}
 }

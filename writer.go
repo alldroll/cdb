@@ -1,13 +1,13 @@
 package cdb
 
 import (
-	"io"
+	"bufio"
 	"encoding/binary"
 	"hash"
-	"bufio"
+	"io"
 )
 
-// slot (bucket) is ..
+// slot (bucket)
 type slot struct {
 	hash, position uint32
 }
@@ -17,14 +17,14 @@ type hashTable []slot
 
 // writerImpl . This is not thread safe implementation
 type writerImpl struct {
-	tables [tableNum]hashTable
-	writer io.WriteSeeker
-	buffer *bufio.Writer
-	hash hash.Hash32
+	tables         [tableNum]hashTable
+	writer         io.WriteSeeker
+	buffer         *bufio.Writer
+	hash           hash.Hash32
 	begin, current int64
 }
 
-//
+// newWriter returns pointer to new instance of writerImpl
 func newWriter(writer io.WriteSeeker, h hash.Hash32) (*writerImpl, error) {
 	startPosition := int64(tablesRefsSize)
 	begin, err := writer.Seek(0, io.SeekCurrent)
@@ -39,15 +39,15 @@ func newWriter(writer io.WriteSeeker, h hash.Hash32) (*writerImpl, error) {
 	}
 
 	return &writerImpl{
-		writer: writer,
-		buffer: bufio.NewWriter(writer),
-		hash: h,
-		begin: begin,
+		writer:  writer,
+		buffer:  bufio.NewWriter(writer),
+		hash:    h,
+		begin:   begin,
 		current: startPosition,
 	}, nil
 }
 
-//
+// Put saves new associated pair <key, value> into databases. Returns not nil error on failure.
 func (w *writerImpl) Put(key []byte, value []byte) error {
 	lenKey, lenValue := len(key), len(value)
 	if lenKey > maxUint || lenValue > maxUint {
@@ -72,29 +72,26 @@ func (w *writerImpl) Put(key []byte, value []byte) error {
 	w.hash.Write(key)
 	h := w.hash.Sum32()
 
-	table := w.tables[h %tableNum]
+	table := w.tables[h % tableNum]
 	table = append(table, slot{h, uint32(w.current)})
-	w.tables[h %tableNum] = table
+	w.tables[h % tableNum] = table
 
-	err = w.addPos(8)
-	if err != nil {
-		return err
+	if !w.addPos(8) {
+		return OutOfMemory
 	}
 
-	err = w.addPos(lenKey)
-	if err != nil {
-		return err
+	if !w.addPos(lenKey) {
+		return OutOfMemory
 	}
 
-	err = w.addPos(lenValue)
-	if err != nil {
-		return err
+	if !w.addPos(lenValue) {
+		return OutOfMemory
 	}
 
 	return nil
 }
 
-//
+// Commit database, make it possible for reading.
 func (w *writerImpl) Close() error {
 	w.buffer.Flush()
 
@@ -145,9 +142,8 @@ func (w *writerImpl) Close() error {
 			return err
 		}
 
-		err = w.addPos(slotSize * n)
-		if err != nil {
-			return err
+		if !w.addPos(slotSize * n) {
+			return OutOfMemory
 		}
 	}
 
@@ -155,17 +151,19 @@ func (w *writerImpl) Close() error {
 	return nil
 }
 
-func (w *writerImpl) addPos(len int) error {
+// addPos try to shift current position on len. Returns true on success otherwise false
+func (w *writerImpl) addPos(len int) bool {
 	newPos := w.current + int64(len)
 	if newPos > maxUint {
-		return OutOfMemory
+		return false
 	}
 
 	w.current = newPos
-	return nil
+	return true
 }
 
+// writePair writes binary representation of two uint32 numbers to io.Writer
 func writePair(writer io.Writer, a, b uint32) error {
-	var pairBuf = []uint32 {a, b}
+	var pairBuf = []uint32{a, b}
 	return binary.Write(writer, binary.LittleEndian, pairBuf)
 }

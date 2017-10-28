@@ -156,7 +156,7 @@ func TestConcurrentGet(t *testing.T) {
 	wg.Wait()
 }
 
-func TestIteratorOnEmptyDataset(t *testing.T) {
+func TestIteratorOnEmptyDataSet(t *testing.T) {
 	f, _ := os.Create("test.cdb")
 	defer f.Close()
 	defer os.Remove("test.cdb")
@@ -171,14 +171,22 @@ func TestIteratorOnEmptyDataset(t *testing.T) {
 	writer.Close()
 	reader, _ := handle.GetReader(f)
 
-	iterator := reader.Iterator()
+	iterator, err := reader.Iterator()
+	if err != nil {
+		t.Errorf("Got unexpected error %v", err)
+	}
+
+	if iterator.HasNext() {
+		t.Errorf("Iterator should not be deferencable")
+	}
+
 	ok, err := iterator.Next()
 	if ok {
-		t.Errorf("Next should return false")
+		t.Errorf("Next should returns true")
 	}
 
 	if err != nil {
-		t.Errorf("Got unexpected error %s", err)
+		t.Errorf("Got unexpected error %v", err)
 	}
 }
 
@@ -197,7 +205,8 @@ func TestIterator(t *testing.T) {
 		{"key3", "value3"},
 		{"key4", "value4"},
 		{"key5", "value5"},
-		{"key6", "value6"},
+		{"key6", "value61"},
+		{"key6", "value62"},
 		{"key7", "value7"},
 	}
 
@@ -213,13 +222,70 @@ func TestIterator(t *testing.T) {
 	writer.Close()
 	reader, _ := handle.GetReader(f)
 
-	iterator := reader.Iterator()
+	iterator, err := reader.Iterator()
+	if err != nil {
+		t.Errorf("Got unexpected error %s", err)
+	}
+
 	for _, c := range cases {
-		ok, err := iterator.Next()
-		if !ok {
-			t.Errorf("Next should return true")
+		if c.key != string(iterator.Key()) || c.value != string(iterator.Value()) {
+			t.Errorf(
+				"Expected key to be %s, value to be %s, got %s, %s",
+				c.key,
+				c.value,
+				iterator.Key(),
+				iterator.Value(),
+			)
 		}
 
+		_, err := iterator.Next()
+		if err != nil {
+			t.Errorf("Got unexpected error %s", err)
+		}
+	}
+
+	ok, err := iterator.Next()
+	if ok {
+		t.Errorf("Next should return false")
+	}
+
+	if err != nil {
+		t.Errorf("Got unexpected error %s", err)
+	}
+}
+
+func TestIteratorAt(t *testing.T) {
+	f, _ := os.Create("test.cdb")
+	defer f.Close()
+	defer os.Remove("test.cdb")
+
+	handle := New()
+
+	cases := []struct {
+		key, value string
+	}{
+		{"key1", "value1"},
+		{"key2", "value2"},
+		{"key3", "value3"},
+		{"key4", "value4"},
+		{"key5", "value5"},
+		{"key6", "value6"},
+	}
+
+	writer, err := handle.GetWriter(f)
+	if err != nil {
+		t.Error(err)
+	}
+
+	for _, c := range cases {
+		writer.Put([]byte(c.key), []byte(c.value))
+	}
+
+	writer.Close()
+	reader, _ := handle.GetReader(f)
+
+	for _, c := range cases {
+		iterator, err := reader.IteratorAt([]byte(c.key))
 		if err != nil {
 			t.Errorf("Got unexpected error %s", err)
 		}
@@ -233,15 +299,6 @@ func TestIterator(t *testing.T) {
 				iterator.Value(),
 			)
 		}
-	}
-
-	ok, err := iterator.Next()
-	if ok {
-		t.Errorf("Next should return false")
-	}
-
-	if err != nil {
-		t.Errorf("Got unexpected error %s", err)
 	}
 }
 
