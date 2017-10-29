@@ -22,9 +22,12 @@ const (
 // OutOfMemory
 var OutOfMemory = errors.New("OutOfMemory. CDB can handle any database up to 4 gigabytes")
 
+// Hasher is callback for creating new instance of hash.Hash32.
+type Hasher func () hash.Hash32
+
 // CDB is an associative array: it maps strings (``keys'') to strings (``data'').
 type CDB struct {
-	h hash.Hash32
+	Hasher
 }
 
 // Writer provides API for creating database.
@@ -35,44 +38,44 @@ type Writer interface {
 	Close() error
 }
 
-// Reader provides API for getting values by given keys. All methods are thread safe
+// Reader provides API for getting values by given keys. All methods are thread safe.
 type Reader interface {
 	// Get returns first value associated with given key or returns nil if there is no associations.
 	Get(key []byte) ([]byte, error)
-	// Iterator returns new Iterator object that points on first record
+	// Iterator returns new Iterator object that points on first record.
 	Iterator() (Iterator, error)
-	// IteratorAt returns new Iterator object that points on first record associated with given key
+	// IteratorAt returns new Iterator object that points on first record associated with given key.
 	IteratorAt(key []byte) (Iterator, error)
 }
 
-// Iterator provides API for walking through database's records. Do not share object between multiple goroutines
+// Iterator provides API for walking through database's records. Do not share object between multiple goroutines.
 type Iterator interface {
-	// Next moves iterator to the next record. Returns true on success otherwise false
+	// Next moves iterator to the next record. Returns true on success otherwise false.
 	Next() (bool, error)
-	// Value returns value of current record. Returns nil if iterator is not valid
+	// Value returns value of current record. Returns nil if iterator is not valid.
 	Value() []byte
-	// Key returns key of current record. Returns nil if iterator is not valid
+	// Key returns key of current record. Returns nil if iterator is not valid.
 	Key() []byte
-	// IsDereferencable detects is Valid Iterator
+	// HasNext tells can iterator be moved to the next record.
 	HasNext() bool
 }
 
 // New returns new instance of CDB struct.
 func New() *CDB {
-	return &CDB{&hashImpl{}}
+	return &CDB{NewHash}
 }
 
 // SetHash tells cdb to use given hash function for calculations.
-func (cdb *CDB) SetHash(hash hash.Hash32) {
-	cdb.h = hash
+func (cdb *CDB) SetHash(hasher Hasher) {
+	cdb.Hasher = hasher
 }
 
 // GetWriter returns new Writer object.
 func (cdb *CDB) GetWriter(writer io.WriteSeeker) (Writer, error) {
-	return newWriter(writer, cdb.h)
+	return newWriter(writer, cdb.Hasher)
 }
 
 // GetReader returns new Reader object.
 func (cdb *CDB) GetReader(reader io.ReaderAt) (Reader, error) {
-	return newReader(reader, cdb.h)
+	return newReader(reader, cdb.Hasher)
 }

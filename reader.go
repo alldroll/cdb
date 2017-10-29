@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"hash"
 	"io"
-	"sync"
 )
 
 // hashTableRef is a pointer that state a position and a length of the hash table
@@ -20,16 +18,15 @@ type hashTableRef struct {
 type readerImpl struct {
 	refs   [tableNum]hashTableRef
 	reader io.ReaderAt
-	hash   hash.Hash32
-	mutex  sync.Mutex
+	hasher Hasher
 	endPos uint32
 }
 
 // newReader return new readerImpl object on success, otherwise return nil and error
-func newReader(reader io.ReaderAt, h hash.Hash32) (*readerImpl, error) {
+func newReader(reader io.ReaderAt, hasher Hasher) (*readerImpl, error) {
 	r := &readerImpl{
 		reader: reader,
-		hash:   h,
+		hasher: hasher,
 	}
 
 	err := r.initialize()
@@ -137,11 +134,9 @@ func (r *readerImpl) IteratorAt(key []byte) (Iterator, error) {
 
 // calcHash returns hash value of given key
 func (r *readerImpl) calcHash(key []byte) uint32 {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	r.hash.Write(key)
-	return r.hash.Sum32()
+	hashFunc := r.hasher()
+	hashFunc.Write(key)
+	return hashFunc.Sum32()
 }
 
 // readValue returns value of given entry if entry key is same with given key

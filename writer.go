@@ -3,7 +3,6 @@ package cdb
 import (
 	"bufio"
 	"encoding/binary"
-	"hash"
 	"io"
 )
 
@@ -20,12 +19,12 @@ type writerImpl struct {
 	tables         [tableNum]hashTable
 	writer         io.WriteSeeker
 	buffer         *bufio.Writer
-	hash           hash.Hash32
+	hasher         Hasher
 	begin, current int64
 }
 
 // newWriter returns pointer to new instance of writerImpl
-func newWriter(writer io.WriteSeeker, h hash.Hash32) (*writerImpl, error) {
+func newWriter(writer io.WriteSeeker, hasher Hasher) (*writerImpl, error) {
 	startPosition := int64(tablesRefsSize)
 	begin, err := writer.Seek(0, io.SeekCurrent)
 
@@ -41,7 +40,7 @@ func newWriter(writer io.WriteSeeker, h hash.Hash32) (*writerImpl, error) {
 	return &writerImpl{
 		writer:  writer,
 		buffer:  bufio.NewWriter(writer),
-		hash:    h,
+		hasher:  hasher,
 		begin:   begin,
 		current: startPosition,
 	}, nil
@@ -69,8 +68,9 @@ func (w *writerImpl) Put(key []byte, value []byte) error {
 		return err
 	}
 
-	w.hash.Write(key)
-	h := w.hash.Sum32()
+	hashFunc := w.hasher()
+	hashFunc.Write(key)
+	h := hashFunc.Sum32()
 
 	table := w.tables[h%tableNum]
 	table = append(table, slot{h, uint32(w.current)})

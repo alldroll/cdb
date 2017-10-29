@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"hash/fnv"
 )
 
 func TestShouldReturnAllValues(t *testing.T) {
@@ -298,6 +299,50 @@ func TestIteratorAt(t *testing.T) {
 				iterator.Key(),
 				iterator.Value(),
 			)
+		}
+	}
+}
+
+func TestCDB_SetHash(t *testing.T) {
+	f, _ := os.Create("test.cdb")
+	defer f.Close()
+	defer os.Remove("test.cdb")
+
+	handle := New()
+	handle.SetHash(fnv.New32)
+
+	cases := []struct {
+		key, value string
+	}{
+		{"key1", "value1"},
+		{"key2", "value2"},
+		{"key3", "value3"},
+		{"key4", "value4"},
+		{"key5", "value5"},
+		{"key6", "value6"},
+		{"key7", "value7"},
+	}
+
+	writer, err := handle.GetWriter(f)
+	if err != nil {
+		t.Error(err)
+	}
+
+	for _, c := range cases {
+		writer.Put([]byte(c.key), []byte(c.value))
+	}
+
+	writer.Close()
+	reader, _ := handle.GetReader(f)
+
+	for _, c := range cases {
+		value, err := reader.Get([]byte(c.key))
+		if err != nil {
+			t.Error(err)
+		}
+
+		if string(value) != c.value {
+			t.Errorf("Expected value %s, got %s", c.value, value)
 		}
 	}
 }

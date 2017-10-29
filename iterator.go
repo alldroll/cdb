@@ -45,7 +45,7 @@ func (i *iteratorImpl) Key() []byte {
 	return i.key
 }
 
-// IsDereferencable detects is Valid Iterator
+// HasNext tells can iterator be moved to the next record.
 func (i *iteratorImpl) HasNext() bool {
 	return i.hasNext
 }
