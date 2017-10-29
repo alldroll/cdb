@@ -2,10 +2,10 @@ package cdb
 
 // iteratorImpl represents implementation of Iterator
 type iteratorImpl struct {
-	position uint32
-	r *readerImpl
+	position   uint32
+	r          *readerImpl
 	key, value []byte
-	hasNext bool
+	hasNext    bool
 }
 
 // Next moves iterator to the next record. Returns true on success otherwise false
@@ -23,8 +23,8 @@ func (i *iteratorImpl) Next() (bool, error) {
 		return false, err
 	}
 
-	data := make([]byte, keySize + valSize)
-	_, err = i.r.reader.ReadAt(data, int64(i.position + 8))
+	data := make([]byte, keySize+valSize)
+	_, err = i.r.reader.ReadAt(data, int64(i.position+8))
 	if err != nil {
 		return false, err
 	}

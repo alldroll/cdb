@@ -2,7 +2,7 @@ package cdb
 
 const (
 	startingHash = 5381
-	size = 4
+	size         = 4
 )
 
 type hashImpl struct {

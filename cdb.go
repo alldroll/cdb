@@ -3,9 +3,9 @@ package cdb
 // This library implements the data structure of the Constant Database proposed by Daniel J. Bernstein http://cr.yp.to/cdb.html
 
 import (
-	"io"
-	"hash"
 	"errors"
+	"hash"
+	"io"
 )
 
 const (

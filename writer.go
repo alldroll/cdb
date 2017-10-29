@@ -72,9 +72,9 @@ func (w *writerImpl) Put(key []byte, value []byte) error {
 	w.hash.Write(key)
 	h := w.hash.Sum32()
 
-	table := w.tables[h % tableNum]
+	table := w.tables[h%tableNum]
 	table = append(table, slot{h, uint32(w.current)})
-	w.tables[h % tableNum] = table
+	w.tables[h%tableNum] = table
 
 	if !w.addPos(8) {
 		return OutOfMemory

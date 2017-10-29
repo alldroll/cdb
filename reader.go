@@ -48,7 +48,7 @@ func (r *readerImpl) initialize() error {
 		return errors.New("Invalid db header, impossible to read hashTableRefs structures")
 	}
 
-	for i, _ := range r.refs {
+	for i := range r.refs {
 		j := i * 8
 		r.refs[i].position, r.refs[i].length = binary.LittleEndian.Uint32(buf[j:j+4]), binary.LittleEndian.Uint32(buf[j+4:j+8])
 	}
@@ -98,7 +98,7 @@ func (r *readerImpl) Iterator() (Iterator, error) {
 // IteratorAt returns new Iterator object that points on first record associated with given key
 func (r *readerImpl) IteratorAt(key []byte) (Iterator, error) {
 	h := r.calcHash(key)
-	ref := r.refs[h % tableNum]
+	ref := r.refs[h%tableNum]
 
 	if ref.length == 0 {
 		return nil, nil
@@ -112,7 +112,7 @@ func (r *readerImpl) IteratorAt(key []byte) (Iterator, error) {
 	k := (h >> 8) % ref.length
 
 	for j = 0; j < ref.length; j++ {
-		r.readPair(ref.position + k * slotSize, &entry.hash, &entry.position)
+		r.readPair(ref.position+k*slotSize, &entry.hash, &entry.position)
 
 		if entry.position == 0 {
 			return nil, nil
@@ -125,7 +125,7 @@ func (r *readerImpl) IteratorAt(key []byte) (Iterator, error) {
 			}
 
 			if value != nil {
-				return r.newIterator(entry.position + uint32(len(key)) + uint32(len(value) + 8), key, value), nil
+				return r.newIterator(entry.position+uint32(len(key))+uint32(len(value)+8), key, value), nil
 			}
 		}
 
@@ -161,7 +161,7 @@ func (r *readerImpl) readValue(entry slot, key []byte) ([]byte, error) {
 	}
 
 	data := make([]byte, keySize+valSize)
-	_, err = r.reader.ReadAt(data, int64(entry.position + 8))
+	_, err = r.reader.ReadAt(data, int64(entry.position+8))
 
 	if err != nil {
 		return nil, err
