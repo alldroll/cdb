@@ -11,28 +11,28 @@ import (
 
 func main() {
 	var (
-		sourceFile *os.File = os.Stdin
-		destinationFile *os.File = os.Stdout
+		sourceFile *os.File
+		destinationFile *os.File
 		err error
 	)
 
-	if len(os.Args) >= 2 {
-		sourceFile, err = os.OpenFile(os.Args[1], os.O_RDONLY, 0)
-		if err != nil {
-			log.Fatalf("[Fail to open source file] %s", err)
-		}
-
-		defer sourceFile.Close()
+	if len(os.Args) != 3 {
+		log.Fatalf("Usage: %s source destination", os.Args[0])
 	}
 
-	if len(os.Args) == 3 {
-		destinationFile, err = os.OpenFile(os.Args[2], os.O_CREATE | os.O_WRONLY | os.O_TRUNC, 0644)
-		if err != nil {
-			log.Fatalf("[Fail to open destination file] %s", err)
-		}
-
-		defer destinationFile.Close()
+	sourceFile, err = os.OpenFile(os.Args[1], os.O_RDONLY, 0)
+	if err != nil {
+		log.Fatalf("[Fail to open source file] %s", err)
 	}
+
+	defer sourceFile.Close()
+
+	destinationFile, err = os.OpenFile(os.Args[2], os.O_CREATE | os.O_WRONLY | os.O_TRUNC, 0644)
+	if err != nil {
+		log.Fatalf("[Fail to open destination file] %s", err)
+	}
+
+	defer destinationFile.Close()
 
 	cdbHandle := cdb.New()
 	cdbWriter, err := cdbHandle.GetWriter(destinationFile)
