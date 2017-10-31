@@ -1,3 +1,5 @@
+// dump.go reads a constant database from input file and prints the database contents in csv format to stdout
+
 package main
 
 import (

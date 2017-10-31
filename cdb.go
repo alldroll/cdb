@@ -65,7 +65,12 @@ func New() *CDB {
 	return &CDB{NewHash}
 }
 
-// SetHash tells cdb to use given hash function for calculations.
+// SetHash tells cdb to use given hash function for calculations. Given hash will be used only for new instances of Reader, Writer, i.e.
+//
+// h := cdb.New()
+// h.GetWriter(f) ... do some work ( here we use default Hasher )
+// h.SetHash(fnv.Hash32)
+// h.GetReader(f)  - only new instances will be use fnv.Hash32
 func (cdb *CDB) SetHash(hasher Hasher) {
 	cdb.Hasher = hasher
 }

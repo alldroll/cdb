@@ -12,6 +12,7 @@ func NewHash() hash.Hash32 {
 	return &hashImpl{startingHash}
 }
 
+// hashImpl implements hash.Hash32 described http://cr.yp.to/cdb/cdb.txt
 type hashImpl struct {
 	uint32
 }

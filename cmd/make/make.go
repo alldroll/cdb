@@ -1,3 +1,5 @@
+// make.go reads a series of csv encoded records from input file (source) and writes a constant database to output file (destination)
+
 package main
 
 import (
