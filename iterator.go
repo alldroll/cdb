@@ -5,14 +5,12 @@ type iteratorImpl struct {
 	position   uint32
 	r          *readerImpl
 	key, value []byte
-	hasNext    bool
 }
 
 // Next moves iterator to the next record. Returns true on success otherwise false
 func (i *iteratorImpl) Next() (bool, error) {
-	if i.position >= i.r.endPos {
+	if !i.HasNext() {
 		i.key, i.value = nil, nil
-		i.hasNext = false
 		return false, nil
 	}
 
@@ -47,5 +45,5 @@ func (i *iteratorImpl) Key() []byte {
 
 // HasNext tells can iterator be moved to the next record.
 func (i *iteratorImpl) HasNext() bool {
-	return i.hasNext
+	return i.position < i.r.endPos
 }

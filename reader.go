@@ -84,8 +84,7 @@ func (r *readerImpl) Get(key []byte) ([]byte, error) {
 func (r *readerImpl) Iterator() (Iterator, error) {
 	iterator := r.newIterator(tablesRefsSize, nil, nil)
 
-	_, err := iterator.Next()
-	if err != nil {
+	if _, err := iterator.Next(); err != nil {
 		return nil, err
 	}
 
@@ -189,6 +188,5 @@ func (r *readerImpl) newIterator(position uint32, key, value []byte) Iterator {
 		r,
 		key,
 		value,
-		r.endPos > position,
 	}
 }
