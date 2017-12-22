@@ -94,7 +94,7 @@ func (r *readerImpl) Iterator() (Iterator, error) {
 // IteratorAt returns new Iterator object that points on first record associated with given key
 func (r *readerImpl) IteratorAt(key []byte) (Iterator, error) {
 	h := r.calcHash(key)
-	ref := r.refs[h%tableNum]
+	ref := &r.refs[h%tableNum]
 
 	if ref.length == 0 {
 		return nil, nil
@@ -121,7 +121,7 @@ func (r *readerImpl) IteratorAt(key []byte) (Iterator, error) {
 			}
 
 			if value != nil {
-				return r.newIterator(entry.position+uint32(len(key))+uint32(len(value)+8), key, value), nil
+				return r.newIterator(entry.position+uint32(len(key)+len(value)+8), key, value), nil
 			}
 		}
 
