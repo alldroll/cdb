@@ -3,10 +3,10 @@
 package main
 
 import (
-	"os"
-	"log"
 	"encoding/csv"
-	"github.com/alldroll/go-datastructures/cdb"
+	"github.com/alldroll/cdb"
+	"log"
+	"os"
 )
 
 func main() {
