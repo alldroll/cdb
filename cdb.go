@@ -23,7 +23,7 @@ const (
 var OutOfMemory = errors.New("OutOfMemory. CDB can handle any database up to 4 gigabytes")
 
 // Hasher is callback for creating new instance of hash.Hash32.
-type Hasher func () hash.Hash32
+type Hasher func() hash.Hash32
 
 // CDB is an associative array: it maps strings (``keys'') to strings (``data'').
 type CDB struct {
@@ -42,6 +42,8 @@ type Writer interface {
 type Reader interface {
 	// Get returns first value associated with given key or returns nil if there is no associations.
 	Get(key []byte) ([]byte, error)
+	// Has returns true if given key exists, otherwise returns false.
+	Has(key []byte) (bool, error)
 	// Iterator returns new Iterator object that points on first record.
 	Iterator() (Iterator, error)
 	// IteratorAt returns new Iterator object that points on first record associated with given key.
@@ -52,12 +54,18 @@ type Reader interface {
 type Iterator interface {
 	// Next moves iterator to the next record. Returns true on success otherwise false.
 	Next() (bool, error)
-	// Value returns value of current record. Returns nil if iterator is not valid.
-	Value() []byte
-	// Key returns key of current record. Returns nil if iterator is not valid.
-	Key() []byte
+	// Record returns record on which points given iterator.
+	Record() Record
 	// HasNext tells can iterator be moved to the next record.
 	HasNext() bool
+}
+
+// Record provides API for reading record key, value. Do not share object between multiple goroutines.
+type Record interface {
+	// Key returns io.Reader with given record's key and key size.
+	Key() (io.Reader, int)
+	// Value returns io.Reader with given record's value and value size.
+	Value() (io.Reader, int)
 }
 
 // New returns new instance of CDB struct.

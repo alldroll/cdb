@@ -1,11 +1,11 @@
 package cdb
 
 import (
+	"hash/fnv"
 	"os"
 	"strconv"
 	"sync"
 	"testing"
-	"hash/fnv"
 )
 
 func TestShouldReturnAllValues(t *testing.T) {
@@ -100,6 +100,15 @@ func TestShouldReturnNilOnNonExistingKeys(t *testing.T) {
 
 		if value != nil {
 			t.Errorf("Expected nil, got %s", value)
+		}
+
+		exists, err := reader.Has([]byte(key))
+		if err != nil {
+			t.Error(err)
+		}
+
+		if exists == true {
+			t.Error("Expected false, got true")
 		}
 	}
 }
@@ -229,13 +238,27 @@ func TestIterator(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if c.key != string(iterator.Key()) || c.value != string(iterator.Value()) {
+		record := iterator.Record()
+
+		keyReader, keySize := record.Key()
+		key := make([]byte, keySize)
+		if _, err = keyReader.Read(key); err != nil {
+			t.Error(err)
+		}
+
+		valReader, valSize := record.Value()
+		value := make([]byte, valSize)
+		if _, err = valReader.Read(value); err != nil {
+			t.Error(err)
+		}
+
+		if c.key != string(key) || c.value != string(value) {
 			t.Errorf(
 				"Expected key to be %s, value to be %s, got %s, %s",
 				c.key,
 				c.value,
-				iterator.Key(),
-				iterator.Value(),
+				key,
+				value,
 			)
 		}
 
@@ -291,19 +314,33 @@ func TestIteratorAt(t *testing.T) {
 			t.Errorf("Got unexpected error %s", err)
 		}
 
-		if c.key != string(iterator.Key()) || c.value != string(iterator.Value()) {
+		record := iterator.Record()
+
+		keyReader, keySize := record.Key()
+		key := make([]byte, keySize)
+		if _, err = keyReader.Read(key); err != nil {
+			t.Error(err)
+		}
+
+		valReader, valSize := record.Value()
+		value := make([]byte, valSize)
+		if _, err = valReader.Read(value); err != nil {
+			t.Error(err)
+		}
+
+		if c.key != string(key) || c.value != string(value) {
 			t.Errorf(
 				"Expected key to be %s, value to be %s, got %s, %s",
 				c.key,
 				c.value,
-				iterator.Key(),
-				iterator.Value(),
+				key,
+				value,
 			)
 		}
 	}
 }
 
-func TestCDB_SetHash(t *testing.T) {
+func TestSetHash(t *testing.T) {
 	f, _ := os.Create("test.cdb")
 	defer f.Close()
 	defer os.Remove("test.cdb")
@@ -347,7 +384,7 @@ func TestCDB_SetHash(t *testing.T) {
 	}
 }
 
-func BenchmarkCDB_GetReader(b *testing.B) {
+func BenchmarkGetReader(b *testing.B) {
 	b.StopTimer()
 
 	n := 1000
@@ -372,7 +409,7 @@ func BenchmarkCDB_GetReader(b *testing.B) {
 	}
 }
 
-func BenchmarkReaderImpl_Get(b *testing.B) {
+func BenchmarkReaderGet(b *testing.B) {
 	b.StopTimer()
 
 	n := 1000
@@ -399,7 +436,34 @@ func BenchmarkReaderImpl_Get(b *testing.B) {
 	}
 }
 
-func BenchmarkWriterImpl_Put(b *testing.B) {
+func BenchmarkReaderIteratorAt(b *testing.B) {
+	b.StopTimer()
+
+	n := 1000
+	f, _ := os.Create("test.cdb")
+	defer f.Close()
+	defer os.Remove("test.cdb")
+
+	handle := New()
+	writer, _ := handle.GetWriter(f)
+
+	keys := make([][]byte, n)
+	for i := 0; i < n; i++ {
+		keys[i] = []byte(strconv.Itoa(i))
+		writer.Put(keys[i], keys[i])
+	}
+
+	writer.Close()
+	b.StartTimer()
+
+	reader, _ := handle.GetReader(f)
+
+	for j := 0; j < b.N; j++ {
+		reader.IteratorAt(keys[j%n])
+	}
+}
+
+func BenchmarkWriterPut(b *testing.B) {
 	f, _ := os.Create("test.cdb")
 	defer f.Close()
 	defer os.Remove("test.cdb")

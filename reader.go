@@ -60,12 +60,6 @@ func (r *readerImpl) initialize() error {
 	return nil
 }
 
-// A record is located as follows:
-// * Compute the hash value of the key in the record.
-// * The hash value modulo 256 (tableNum) is the number of a hash table.
-// * The hash value divided by 256, modulo the length of that table, is a slot number.
-// * Probe that slot, the next higher slot, and so on, until you find the record or run into an empty slot.
-//
 // Get returns first value for given key.
 func (r *readerImpl) Get(key []byte) ([]byte, error) {
 	iterator, err := r.IteratorAt(key)
@@ -77,7 +71,26 @@ func (r *readerImpl) Get(key []byte) ([]byte, error) {
 		return nil, nil
 	}
 
-	return iterator.Value(), nil
+	valueReader, n := iterator.Record().Value()
+	value := make([]byte, n)
+	_, err = valueReader.Read(value)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return value, err
+}
+
+// Has returns true if given key exists, otherwise returns false.
+func (r *readerImpl) Has(key []byte) (bool, error) {
+	iterator, err := r.IteratorAt(key)
+
+	if err != nil {
+		return false, err
+	}
+
+	return iterator != nil, nil
 }
 
 // Iterator returns new Iterator object that points on first record
@@ -92,6 +105,12 @@ func (r *readerImpl) Iterator() (Iterator, error) {
 }
 
 // IteratorAt returns new Iterator object that points on first record associated with given key
+//
+// A record is located as follows:
+// * Compute the hash value of the key in the record.
+// * The hash value modulo 256 (tableNum) is the number of a hash table.
+// * The hash value divided by 256, modulo the length of that table, is a slot number.
+// * Probe that slot, the next higher slot, and so on, until you find the record or run into an empty slot.
 func (r *readerImpl) IteratorAt(key []byte) (Iterator, error) {
 	h := r.calcHash(key)
 	ref := &r.refs[h%tableNum]
@@ -101,8 +120,10 @@ func (r *readerImpl) IteratorAt(key []byte) (Iterator, error) {
 	}
 
 	var (
-		entry slot
-		j     uint32
+		entry        slot
+		j            uint32
+		valueSection *io.SectionReader
+		err          error
 	)
 
 	k := (h >> 8) % ref.length
@@ -115,20 +136,33 @@ func (r *readerImpl) IteratorAt(key []byte) (Iterator, error) {
 		}
 
 		if entry.hash == h {
-			value, err := r.readValue(entry, key)
+			valueSection, err = r.checkEntry(entry, key)
 			if err != nil {
 				return nil, err
 			}
 
-			if value != nil {
-				return r.newIterator(entry.position+uint32(len(key)+len(value)+8), key, value), nil
+			if valueSection != nil {
+				break
 			}
 		}
 
 		k = (k + 1) % ref.length
 	}
 
-	return nil, nil
+	if valueSection == nil {
+		return nil, nil
+	}
+
+	position, err := valueSection.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+
+	return r.newIterator(
+		uint32(position+valueSection.Size()),
+		io.NewSectionReader(bytes.NewReader(key), 0, int64(len(key))),
+		valueSection,
+	), nil
 }
 
 // calcHash returns hash value of given key
@@ -138,8 +172,8 @@ func (r *readerImpl) calcHash(key []byte) uint32 {
 	return hashFunc.Sum32()
 }
 
-// readValue returns value of given entry if entry key is same with given key
-func (r *readerImpl) readValue(entry slot, key []byte) ([]byte, error) {
+// checkEntry returns io.SectionReader if given slot belongs to given key, otherwise nil
+func (r *readerImpl) checkEntry(entry slot, key []byte) (*io.SectionReader, error) {
 	var (
 		keySize, valSize uint32
 		givenKeySize     uint32 = uint32(len(key))
@@ -154,7 +188,7 @@ func (r *readerImpl) readValue(entry slot, key []byte) ([]byte, error) {
 		return nil, nil
 	}
 
-	data := make([]byte, keySize+valSize)
+	data := make([]byte, keySize)
 	_, err = r.reader.ReadAt(data, int64(entry.position+8))
 
 	if err != nil {
@@ -165,7 +199,7 @@ func (r *readerImpl) readValue(entry slot, key []byte) ([]byte, error) {
 		return nil, nil
 	}
 
-	return data[keySize:], nil
+	return io.NewSectionReader(r.reader, int64(entry.position+8+keySize), int64(valSize)), nil
 }
 
 // readPair reads from r.reader uint_32 pair if possible. Returns not nil error on failure
@@ -182,11 +216,13 @@ func (r *readerImpl) readPair(pos uint32, a, b *uint32) error {
 }
 
 // newIterator returns new instance of Iterator object
-func (r *readerImpl) newIterator(position uint32, key, value []byte) Iterator {
-	return &iteratorImpl{
-		position,
-		r,
-		key,
-		value,
+func (r *readerImpl) newIterator(position uint32, keySection, valueSection *io.SectionReader) Iterator {
+	return &iterator{
+		position:  position,
+		cdbReader: r,
+		record: &record{
+			keySection:   keySection,
+			valueSection: valueSection,
+		},
 	}
 }

@@ -38,9 +38,18 @@ func main() {
 	defer csvWriter.Flush()
 
 	for {
-		key, value := iterator.Key(), iterator.Value()
-		if key == nil {
-			break
+		record := iterator.Record()
+
+		keyReader, keySize := record.Key()
+		key := make([]byte, keySize)
+		if _, err = keyReader.Read(key); err != nil {
+			log.Fatal(err)
+		}
+
+		valReader, valSize := record.Value()
+		value := make([]byte, valSize)
+		if _, err = valReader.Read(value); err != nil {
+			log.Fatal(err)
 		}
 
 		err = csvWriter.Write([]string{string(key), string(value)})
