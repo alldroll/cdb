@@ -122,7 +122,8 @@ func (r *readerImpl) IteratorAt(key []byte) (Iterator, error) {
 	var (
 		entry        slot
 		j            uint32
-		valueSection *io.SectionReader
+		valueSection sectionReaderCallback
+		position     uint32
 		err          error
 	)
 
@@ -136,7 +137,7 @@ func (r *readerImpl) IteratorAt(key []byte) (Iterator, error) {
 		}
 
 		if entry.hash == h {
-			valueSection, err = r.checkEntry(entry, key)
+			valueSection, position, err = r.checkEntry(entry, key)
 			if err != nil {
 				return nil, err
 			}
@@ -153,14 +154,11 @@ func (r *readerImpl) IteratorAt(key []byte) (Iterator, error) {
 		return nil, nil
 	}
 
-	position, err := valueSection.Seek(0, io.SeekStart)
-	if err != nil {
-		return nil, err
-	}
-
 	return r.newIterator(
-		uint32(position+valueSection.Size()),
-		io.NewSectionReader(bytes.NewReader(key), 0, int64(len(key))),
+		position,
+		func() *io.SectionReader {
+			return io.NewSectionReader(bytes.NewReader(key), 0, int64(len(key)))
+		},
 		valueSection,
 	), nil
 }
@@ -173,7 +171,7 @@ func (r *readerImpl) calcHash(key []byte) uint32 {
 }
 
 // checkEntry returns io.SectionReader if given slot belongs to given key, otherwise nil
-func (r *readerImpl) checkEntry(entry slot, key []byte) (*io.SectionReader, error) {
+func (r *readerImpl) checkEntry(entry slot, key []byte) (sectionReaderCallback, uint32, error) {
 	var (
 		keySize, valSize uint32
 		givenKeySize     uint32 = uint32(len(key))
@@ -181,25 +179,29 @@ func (r *readerImpl) checkEntry(entry slot, key []byte) (*io.SectionReader, erro
 
 	err := r.readPair(entry.position, &keySize, &valSize)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	if keySize != givenKeySize {
-		return nil, nil
+		return nil, 0, nil
 	}
 
 	data := make([]byte, keySize)
 	_, err = r.reader.ReadAt(data, int64(entry.position+8))
 
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	if bytes.Compare(data[:keySize], key) != 0 {
-		return nil, nil
+		return nil, 0, nil
 	}
 
-	return io.NewSectionReader(r.reader, int64(entry.position+8+keySize), int64(valSize)), nil
+	position := entry.position + 8 + keySize
+
+	return func() *io.SectionReader {
+		return io.NewSectionReader(r.reader, int64(position), int64(valSize))
+	}, position + valSize, nil
 }
 
 // readPair reads from r.reader uint_32 pair if possible. Returns not nil error on failure
@@ -216,7 +218,7 @@ func (r *readerImpl) readPair(pos uint32, a, b *uint32) error {
 }
 
 // newIterator returns new instance of Iterator object
-func (r *readerImpl) newIterator(position uint32, keySection, valueSection *io.SectionReader) Iterator {
+func (r *readerImpl) newIterator(position uint32, keySection, valueSection sectionReaderCallback) Iterator {
 	return &iterator{
 		position:  position,
 		cdbReader: r,

@@ -14,9 +14,11 @@ type iterator struct {
 
 // record represents implementation of Record
 type record struct {
-	valueSection *io.SectionReader
-	keySection   *io.SectionReader
+	valueSection sectionReaderCallback
+	keySection   sectionReaderCallback
 }
+
+type sectionReaderCallback func() *io.SectionReader
 
 // Next moves iterator to the next record. Returns true on success otherwise false
 func (i *iterator) Next() (bool, error) {
@@ -38,8 +40,12 @@ func (i *iterator) Next() (bool, error) {
 	i.position += keySize + valSize + 8
 
 	i.record = &record{
-		keySection:   io.NewSectionReader(bytes.NewReader(buf[:keySize]), 0, int64(keySize)),
-		valueSection: io.NewSectionReader(bytes.NewReader(buf[keySize:]), 0, int64(valSize)),
+		keySection: func() *io.SectionReader {
+			return io.NewSectionReader(bytes.NewReader(buf[:keySize]), 0, int64(keySize))
+		},
+		valueSection: func() *io.SectionReader {
+			return io.NewSectionReader(bytes.NewReader(buf[keySize:]), 0, int64(valSize))
+		},
 	}
 
 	return true, nil
@@ -57,10 +63,12 @@ func (i *iterator) HasNext() bool {
 
 // Key returns io.SectionReader which points on record's key
 func (r *record) Key() (io.Reader, int) {
-	return r.keySection, int(r.keySection.Size())
+	reader := r.keySection()
+	return reader, int(reader.Size())
 }
 
 // Value returns io.SectionReader which points on record's value
 func (r *record) Value() (io.Reader, int) {
-	return r.valueSection, int(r.valueSection.Size())
+	reader := r.valueSection()
+	return reader, int(reader.Size())
 }

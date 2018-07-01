@@ -2,6 +2,7 @@ package cdb
 
 import (
 	"hash/fnv"
+	"io"
 	"os"
 	"strconv"
 	"sync"
@@ -316,16 +317,24 @@ func TestIteratorAt(t *testing.T) {
 
 		record := iterator.Record()
 
-		keyReader, keySize := record.Key()
-		key := make([]byte, keySize)
-		if _, err = keyReader.Read(key); err != nil {
-			t.Error(err)
-		}
+		var (
+			keyReader, valReader io.Reader
+			keySize, valSize     int
+			key, value           []byte
+		)
 
-		valReader, valSize := record.Value()
-		value := make([]byte, valSize)
-		if _, err = valReader.Read(value); err != nil {
-			t.Error(err)
+		for i := 0; i < 10; i++ {
+			keyReader, keySize = record.Key()
+			key = make([]byte, keySize)
+			if _, err = keyReader.Read(key); err != nil {
+				t.Error(err)
+			}
+
+			valReader, valSize = record.Value()
+			value = make([]byte, valSize)
+			if _, err = valReader.Read(value); err != nil {
+				t.Error(err)
+			}
 		}
 
 		if c.key != string(key) || c.value != string(value) {
