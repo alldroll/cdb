@@ -14,11 +14,11 @@ type iterator struct {
 
 // record represents implementation of Record
 type record struct {
-	valueSection sectionReaderCallback
-	keySection   sectionReaderCallback
+	valueSection sectionReaderFactory
+	keySection   sectionReaderFactory
 }
 
-type sectionReaderCallback func() *io.SectionReader
+type sectionReaderFactory func() *io.SectionReader
 
 // Next moves iterator to the next record. Returns true on success otherwise false
 func (i *iterator) Next() (bool, error) {

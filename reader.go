@@ -45,12 +45,12 @@ func (r *readerImpl) initialize() error {
 		return errors.New("Invalid db header, impossible to read hashTableRefs structures")
 	}
 
-	for i := range r.refs {
+	for i := range &r.refs {
 		j := i * 8
 		r.refs[i].position, r.refs[i].length = binary.LittleEndian.Uint32(buf[j:j+4]), binary.LittleEndian.Uint32(buf[j+4:j+8])
 	}
 
-	for _, ref := range r.refs {
+	for _, ref := range &r.refs {
 		if ref.position != 0 {
 			r.endPos = ref.position
 			break
@@ -122,7 +122,7 @@ func (r *readerImpl) IteratorAt(key []byte) (Iterator, error) {
 	var (
 		entry        slot
 		j            uint32
-		valueSection sectionReaderCallback
+		valueSection sectionReaderFactory
 		position     uint32
 		err          error
 	)
@@ -171,7 +171,7 @@ func (r *readerImpl) calcHash(key []byte) uint32 {
 }
 
 // checkEntry returns io.SectionReader if given slot belongs to given key, otherwise nil
-func (r *readerImpl) checkEntry(entry slot, key []byte) (sectionReaderCallback, uint32, error) {
+func (r *readerImpl) checkEntry(entry slot, key []byte) (sectionReaderFactory, uint32, error) {
 	var (
 		keySize, valSize uint32
 		givenKeySize     uint32 = uint32(len(key))
@@ -218,7 +218,7 @@ func (r *readerImpl) readPair(pos uint32, a, b *uint32) error {
 }
 
 // newIterator returns new instance of Iterator object
-func (r *readerImpl) newIterator(position uint32, keySection, valueSection sectionReaderCallback) Iterator {
+func (r *readerImpl) newIterator(position uint32, keySection, valueSection sectionReaderFactory) Iterator {
 	return &iterator{
 		position:  position,
 		cdbReader: r,

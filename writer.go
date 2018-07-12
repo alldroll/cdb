@@ -47,7 +47,7 @@ func newWriter(writer io.WriteSeeker, hasher Hasher) (*writerImpl, error) {
 }
 
 // Put saves new associated pair <key, value> into databases. Returns not nil error on failure.
-func (w *writerImpl) Put(key []byte, value []byte) error {
+func (w *writerImpl) Put(key, value []byte) error {
 	lenKey, lenValue := len(key), len(value)
 	if lenKey > maxUint || lenValue > maxUint {
 		return OutOfMemory
@@ -95,7 +95,7 @@ func (w *writerImpl) Put(key []byte, value []byte) error {
 func (w *writerImpl) Close() error {
 	w.buffer.Flush()
 
-	for _, table := range w.tables {
+	for _, table := range &w.tables {
 		n := uint32(len(table) << 1)
 		if n == 0 {
 			continue
@@ -129,7 +129,7 @@ func (w *writerImpl) Close() error {
 	var pos uint32 = 0
 
 	slotSize := slotSize
-	for _, table := range w.tables {
+	for _, table := range &w.tables {
 		n := len(table) << 1
 		if n == 0 {
 			pos = 0
@@ -152,8 +152,8 @@ func (w *writerImpl) Close() error {
 }
 
 // addPos try to shift current position on len. Returns true on success otherwise false
-func (w *writerImpl) addPos(len int) bool {
-	newPos := w.current + int64(len)
+func (w *writerImpl) addPos(offset int) bool {
+	newPos := w.current + int64(offset)
 	if newPos > maxUint {
 		return false
 	}
