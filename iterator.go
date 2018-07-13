@@ -1,7 +1,6 @@
 package cdb
 
 import (
-	"bytes"
 	"io"
 )
 
@@ -14,8 +13,8 @@ type iterator struct {
 
 // record represents implementation of Record
 type record struct {
-	valueSection sectionReaderFactory
-	keySection   sectionReaderFactory
+	valueSectionFactory sectionReaderFactory
+	keySectionFactory   sectionReaderFactory
 }
 
 type sectionReaderFactory func() *io.SectionReader
@@ -35,16 +34,15 @@ func (i *iterator) Next() (bool, error) {
 		return false, err
 	}
 
-	buf := make([]byte, keySize+valSize)
-	i.cdbReader.reader.ReadAt(buf, int64(i.position+8))
+	keyPos, valPos := int64(i.position+8), int64(i.position+8+keySize)
 	i.position += keySize + valSize + 8
 
 	i.record = &record{
-		keySection: func() *io.SectionReader {
-			return io.NewSectionReader(bytes.NewReader(buf[:keySize]), 0, int64(keySize))
+		keySectionFactory: func() *io.SectionReader {
+			return io.NewSectionReader(i.cdbReader.reader, keyPos, int64(keySize))
 		},
-		valueSection: func() *io.SectionReader {
-			return io.NewSectionReader(bytes.NewReader(buf[keySize:]), 0, int64(valSize))
+		valueSectionFactory: func() *io.SectionReader {
+			return io.NewSectionReader(i.cdbReader.reader, valPos, int64(valSize))
 		},
 	}
 
@@ -63,12 +61,12 @@ func (i *iterator) HasNext() bool {
 
 // Key returns io.SectionReader which points on record's key
 func (r *record) Key() (io.Reader, int) {
-	reader := r.keySection()
+	reader := r.keySectionFactory()
 	return reader, int(reader.Size())
 }
 
 // Value returns io.SectionReader which points on record's value
 func (r *record) Value() (io.Reader, int) {
-	reader := r.valueSection()
+	reader := r.valueSectionFactory()
 	return reader, int(reader.Size())
 }

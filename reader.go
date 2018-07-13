@@ -218,13 +218,13 @@ func (r *readerImpl) readPair(pos uint32, a, b *uint32) error {
 }
 
 // newIterator returns new instance of Iterator object
-func (r *readerImpl) newIterator(position uint32, keySection, valueSection sectionReaderFactory) Iterator {
+func (r *readerImpl) newIterator(position uint32, keySectionFactory, valueSectionFactory sectionReaderFactory) Iterator {
 	return &iterator{
 		position:  position,
 		cdbReader: r,
 		record: &record{
-			keySection:   keySection,
-			valueSection: valueSection,
+			keySectionFactory:   keySectionFactory,
+			valueSectionFactory: valueSectionFactory,
 		},
 	}
 }
