@@ -13,11 +13,18 @@ type iterator struct {
 
 // record represents implementation of Record
 type record struct {
-	valueSectionFactory sectionReaderFactory
-	keySectionFactory   sectionReaderFactory
+	valueSectionFactory *sectionReaderFactory
+	keySectionFactory   *sectionReaderFactory
 }
 
-type sectionReaderFactory func() *io.SectionReader
+type sectionReaderFactory struct {
+	reader         io.ReaderAt
+	position, size uint32
+}
+
+func (s *sectionReaderFactory) create() (io.Reader, uint32) {
+	return io.NewSectionReader(s.reader, int64(s.position), int64(s.size)), s.size
+}
 
 // Next moves iterator to the next record. Returns true on success otherwise false
 func (i *iterator) Next() (bool, error) {
@@ -34,17 +41,20 @@ func (i *iterator) Next() (bool, error) {
 		return false, err
 	}
 
-	keyPos, valPos := int64(i.position+8), int64(i.position+8+keySize)
-	i.position += keySize + valSize + 8
-
 	i.record = &record{
-		keySectionFactory: func() *io.SectionReader {
-			return io.NewSectionReader(i.cdbReader.reader, keyPos, int64(keySize))
+		keySectionFactory: &sectionReaderFactory{
+			reader:   i.cdbReader.reader,
+			position: i.position + 8,
+			size:     keySize,
 		},
-		valueSectionFactory: func() *io.SectionReader {
-			return io.NewSectionReader(i.cdbReader.reader, valPos, int64(valSize))
+		valueSectionFactory: &sectionReaderFactory{
+			reader:   i.cdbReader.reader,
+			position: i.position + 8 + keySize,
+			size:     valSize,
 		},
 	}
+
+	i.position += keySize + valSize + 8
 
 	return true, nil
 }
@@ -60,13 +70,11 @@ func (i *iterator) HasNext() bool {
 }
 
 // Key returns io.SectionReader which points on record's key
-func (r *record) Key() (io.Reader, int) {
-	reader := r.keySectionFactory()
-	return reader, int(reader.Size())
+func (r *record) Key() (io.Reader, uint32) {
+	return r.keySectionFactory.create()
 }
 
 // Value returns io.SectionReader which points on record's value
-func (r *record) Value() (io.Reader, int) {
-	reader := r.valueSectionFactory()
-	return reader, int(reader.Size())
+func (r *record) Value() (io.Reader, uint32) {
+	return r.valueSectionFactory.create()
 }

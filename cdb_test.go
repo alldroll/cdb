@@ -242,13 +242,13 @@ func TestIterator(t *testing.T) {
 		record := iterator.Record()
 
 		keyReader, keySize := record.Key()
-		key := make([]byte, keySize)
+		key := make([]byte, int(keySize))
 		if _, err = keyReader.Read(key); err != nil {
 			t.Error(err)
 		}
 
 		valReader, valSize := record.Value()
-		value := make([]byte, valSize)
+		value := make([]byte, int(valSize))
 		if _, err = valReader.Read(value); err != nil {
 			t.Error(err)
 		}
@@ -319,19 +319,19 @@ func TestIteratorAt(t *testing.T) {
 
 		var (
 			keyReader, valReader io.Reader
-			keySize, valSize     int
+			keySize, valSize     uint32
 			key, value           []byte
 		)
 
 		for i := 0; i < 10; i++ {
 			keyReader, keySize = record.Key()
-			key = make([]byte, keySize)
+			key = make([]byte, int(keySize))
 			if _, err = keyReader.Read(key); err != nil {
 				t.Error(err)
 			}
 
 			valReader, valSize = record.Value()
-			value = make([]byte, valSize)
+			value = make([]byte, int(valSize))
 			if _, err = valReader.Read(value); err != nil {
 				t.Error(err)
 			}

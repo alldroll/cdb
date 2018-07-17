@@ -63,9 +63,9 @@ type Iterator interface {
 // Record provides API for reading record key, value. Do not share object between multiple goroutines.
 type Record interface {
 	// Key returns io.Reader with given record's key and key size.
-	Key() (io.Reader, int)
+	Key() (io.Reader, uint32)
 	// Value returns io.Reader with given record's value and value size.
-	Value() (io.Reader, int)
+	Value() (io.Reader, uint32)
 }
 
 // New returns new instance of CDB struct.
