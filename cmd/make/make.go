@@ -3,19 +3,19 @@
 package main
 
 import (
-	"os"
-	"encoding/csv"
 	"bufio"
+	"encoding/csv"
+	"github.com/alldroll/cdb"
 	"io"
-	"github.com/alldroll/go-datastructures/cdb"
 	"log"
+	"os"
 )
 
 func main() {
 	var (
-		sourceFile *os.File
+		sourceFile      *os.File
 		destinationFile *os.File
-		err error
+		err             error
 	)
 
 	if len(os.Args) != 3 {
@@ -29,7 +29,7 @@ func main() {
 
 	defer sourceFile.Close()
 
-	destinationFile, err = os.OpenFile(os.Args[2], os.O_CREATE | os.O_WRONLY | os.O_TRUNC, 0644)
+	destinationFile, err = os.OpenFile(os.Args[2], os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		log.Fatalf("[Fail to open destination file] %s", err)
 	}
