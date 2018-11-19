@@ -3,10 +3,13 @@
 package main
 
 import (
+	"bytes"
 	"encoding/csv"
-	"github.com/alldroll/cdb"
+	"io"
 	"log"
 	"os"
+
+	"github.com/alldroll/cdb"
 )
 
 func main() {
@@ -40,17 +43,15 @@ func main() {
 	for {
 		record := iterator.Record()
 
-		keyReader, keySize := record.Key()
-		key := make([]byte, keySize)
-		if _, err = keyReader.Read(key); err != nil {
-			log.Fatal(err)
-		}
+		keyReader, _ := record.Key()
+		keyBuf := new(bytes.Buffer)
+		io.Copy(keyBuf, keyReader)
+		key := keyBuf.Bytes()
 
-		valReader, valSize := record.Value()
-		value := make([]byte, valSize)
-		if _, err = valReader.Read(value); err != nil {
-			log.Fatal(err)
-		}
+		valReader, _ := record.Value()
+		valBuf := new(bytes.Buffer)
+		io.Copy(valBuf, valReader)
+		value := valBuf.Bytes()
 
 		err = csvWriter.Write([]string{string(key), string(value)})
 		if err != nil {
