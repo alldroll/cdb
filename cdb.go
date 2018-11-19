@@ -3,7 +3,6 @@ package cdb
 // This library implements the data structure of the Constant Database proposed by Daniel J. Bernstein http://cr.yp.to/cdb.html
 
 import (
-	"errors"
 	"hash"
 	"io"
 )
@@ -18,9 +17,6 @@ const (
 	// Size of hash table slot
 	slotSize = 8
 )
-
-// OutOfMemory
-var OutOfMemory = errors.New("OutOfMemory. CDB can handle any database up to 4 gigabytes")
 
 // Hasher is callback for creating new instance of hash.Hash32.
 type Hasher func() hash.Hash32

@@ -1,14 +1,17 @@
 ## CDB golang implementation
 
-cdb is a fast, reliable, simple package for creating and reading constant databases
+[![Go Report Card](https://goreportcard.com/badge/github.com/alldroll/cdb)](https://goreportcard.com/report/github.com/alldroll/cdb)
+[![GoDoc](https://godoc.org/github.com/alldroll/cdb?status.svg)](https://godoc.org/github.com/alldroll/cdb)
 
+cdb is a fast, reliable, simple package for creating and reading constant databases
 see [docs](http://cr.yp.to/cdb.html) for more details
 
+Advantages
 
-Usage
------
-
-TODO add usage
+* Iterator support
+* Thread safe for reading
+* Lazily key, value reading using io.SectionReader
+* Buffered disc write
 
 Example
 -------

@@ -3,6 +3,7 @@ package cdb
 import (
 	"bufio"
 	"encoding/binary"
+	"errors"
 	"io"
 )
 
@@ -22,6 +23,8 @@ type writerImpl struct {
 	hasher         Hasher
 	begin, current int64
 }
+
+var errOutOfMemory = errors.New("OutOfMemory. CDB can handle any database up to 4 gigabytes")
 
 // newWriter returns pointer to new instance of writerImpl
 func newWriter(writer io.WriteSeeker, hasher Hasher) (*writerImpl, error) {
@@ -50,7 +53,7 @@ func newWriter(writer io.WriteSeeker, hasher Hasher) (*writerImpl, error) {
 func (w *writerImpl) Put(key, value []byte) error {
 	lenKey, lenValue := len(key), len(value)
 	if lenKey > maxUint || lenValue > maxUint {
-		return OutOfMemory
+		return errOutOfMemory
 	}
 
 	err := writePair(w.buffer, uint32(lenKey), uint32(lenValue))
@@ -77,15 +80,15 @@ func (w *writerImpl) Put(key, value []byte) error {
 	w.tables[h%tableNum] = table
 
 	if !w.addPos(8) {
-		return OutOfMemory
+		return errOutOfMemory
 	}
 
 	if !w.addPos(lenKey) {
-		return OutOfMemory
+		return errOutOfMemory
 	}
 
 	if !w.addPos(lenValue) {
-		return OutOfMemory
+		return errOutOfMemory
 	}
 
 	return nil
@@ -123,12 +126,17 @@ func (w *writerImpl) Close() error {
 		}
 	}
 
-	offset, _ := w.writer.Seek(0, io.SeekCurrent)
-	w.writer.Seek(w.begin, io.SeekStart)
+	offset, err := w.writer.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return err
+	}
 
-	var pos uint32 = 0
+	if _, err := w.writer.Seek(w.begin, io.SeekStart); err != nil {
+		return err
+	}
 
-	slotSize := slotSize
+	var pos uint32
+
 	for _, table := range &w.tables {
 		n := len(table) << 1
 		if n == 0 {
@@ -143,11 +151,14 @@ func (w *writerImpl) Close() error {
 		}
 
 		if !w.addPos(slotSize * n) {
-			return OutOfMemory
+			return errOutOfMemory
 		}
 	}
 
-	w.writer.Seek(offset, io.SeekStart)
+	if _, err := w.writer.Seek(offset, io.SeekStart); err != nil {
+		return err
+	}
+
 	return nil
 }
 
