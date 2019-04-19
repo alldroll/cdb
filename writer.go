@@ -109,7 +109,7 @@ func (w *writerImpl) Close() error {
 		for _, slot := range table {
 			k := (slot.hash >> 8) % n
 
-			// linear ...
+			// Linear probing
 			for slots[k].position != 0 {
 				k = (k + 1) % n
 			}

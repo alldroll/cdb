@@ -20,6 +20,7 @@ type readerImpl struct {
 	reader io.ReaderAt
 	hasher Hasher
 	endPos uint32
+	size   int
 }
 
 // newReader return new readerImpl object on success, otherwise return nil and error
@@ -48,6 +49,7 @@ func (r *readerImpl) initialize() error {
 	for i := range &r.refs {
 		j := i * 8
 		r.refs[i].position, r.refs[i].length = binary.LittleEndian.Uint32(buf[j:j+4]), binary.LittleEndian.Uint32(buf[j+4:j+8])
+		r.size += int(r.refs[i].length >> 1)
 	}
 
 	for _, ref := range &r.refs {
@@ -165,6 +167,11 @@ func (r *readerImpl) IteratorAt(key []byte) (Iterator, error) {
 	), nil
 }
 
+// Size returns the size of the dataset
+func (r *readerImpl) Size() int {
+	return r.size
+}
+
 // calcHash returns hash value of given key
 func (r *readerImpl) calcHash(key []byte) uint32 {
 	hashFunc := r.hasher()
@@ -176,7 +183,7 @@ func (r *readerImpl) calcHash(key []byte) uint32 {
 func (r *readerImpl) checkEntry(entry slot, key []byte) (*sectionReaderFactory, uint32, error) {
 	var (
 		keySize, valSize uint32
-		givenKeySize     uint32 = uint32(len(key))
+		givenKeySize     = uint32(len(key))
 	)
 
 	err := r.readPair(entry.position, &keySize, &valSize)

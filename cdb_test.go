@@ -50,6 +50,10 @@ func TestShouldReturnAllValues(t *testing.T) {
 			t.Errorf("Expected value %s, got %s", c.value, value)
 		}
 	}
+
+	if reader.Size() != 7 {
+		t.Errorf("Expected size %d, got %d", 7, reader.Size())
+	}
 }
 
 func TestShouldReturnNilOnNonExistingKeys(t *testing.T) {

@@ -44,6 +44,8 @@ type Reader interface {
 	Iterator() (Iterator, error)
 	// IteratorAt returns new Iterator object that points on first record associated with given key.
 	IteratorAt(key []byte) (Iterator, error)
+	// Size returns the size of the dataset
+	Size() int
 }
 
 // Iterator provides API for walking through database's records. Do not share object between multiple goroutines.
