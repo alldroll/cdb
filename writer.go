@@ -3,7 +3,6 @@ package cdb
 import (
 	"bufio"
 	"encoding/binary"
-	"errors"
 	"io"
 )
 
@@ -15,7 +14,7 @@ type slot struct {
 // hashTable is a linearly probed initialize hash table
 type hashTable []slot
 
-// writerImpl . This is not thread safe implementation
+// writerImpl implements Writer interface
 type writerImpl struct {
 	tables         [tableNum]hashTable
 	writer         io.WriteSeeker
@@ -23,8 +22,6 @@ type writerImpl struct {
 	hasher         Hasher
 	begin, current int64
 }
-
-var errOutOfMemory = errors.New("OutOfMemory. CDB can handle any database up to 4 gigabytes")
 
 // newWriter returns pointer to new instance of writerImpl
 func newWriter(writer io.WriteSeeker, hasher Hasher) (*writerImpl, error) {
@@ -35,8 +32,7 @@ func newWriter(writer io.WriteSeeker, hasher Hasher) (*writerImpl, error) {
 		return nil, err
 	}
 
-	_, err = writer.Seek(startPosition, io.SeekStart)
-	if err != nil {
+	if _, err = writer.Seek(startPosition, io.SeekStart); err != nil {
 		return nil, err
 	}
 
@@ -49,25 +45,23 @@ func newWriter(writer io.WriteSeeker, hasher Hasher) (*writerImpl, error) {
 	}, nil
 }
 
-// Put saves new associated pair <key, value> into databases. Returns not nil error on failure.
+// Put saves a new associated pair <key, value> into databases. Returns an error on failure.
 func (w *writerImpl) Put(key, value []byte) error {
 	lenKey, lenValue := len(key), len(value)
+
 	if lenKey > maxUint || lenValue > maxUint {
-		return errOutOfMemory
+		return ErrOutOfMemory
 	}
 
-	err := writePair(w.buffer, uint32(lenKey), uint32(lenValue))
-	if err != nil {
+	if err := writePair(w.buffer, uint32(lenKey), uint32(lenValue)); err != nil {
 		return err
 	}
 
-	err = binary.Write(w.buffer, binary.LittleEndian, key)
-	if err != nil {
+	if err := binary.Write(w.buffer, binary.LittleEndian, key); err != nil {
 		return err
 	}
 
-	err = binary.Write(w.buffer, binary.LittleEndian, value)
-	if err != nil {
+	if err := binary.Write(w.buffer, binary.LittleEndian, value); err != nil {
 		return err
 	}
 
@@ -79,22 +73,22 @@ func (w *writerImpl) Put(key, value []byte) error {
 	table = append(table, slot{h, uint32(w.current)})
 	w.tables[h%tableNum] = table
 
-	if !w.addPos(8) {
-		return errOutOfMemory
+	if err := w.addPos(8); err != nil {
+		return err
 	}
 
-	if !w.addPos(lenKey) {
-		return errOutOfMemory
+	if err := w.addPos(lenKey); err != nil {
+		return err
 	}
 
-	if !w.addPos(lenValue) {
-		return errOutOfMemory
+	if err := w.addPos(lenValue); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-// Commit database, make it possible for reading.
+// Close commits database, makes it possible for reading.
 func (w *writerImpl) Close() error {
 	w.buffer.Flush()
 
@@ -119,14 +113,14 @@ func (w *writerImpl) Close() error {
 		}
 
 		for _, slot := range slots {
-			err := writePair(w.writer, slot.hash, slot.position)
-			if err != nil {
+			if err := writePair(w.writer, slot.hash, slot.position); err != nil {
 				return err
 			}
 		}
 	}
 
 	offset, err := w.writer.Seek(0, io.SeekCurrent)
+
 	if err != nil {
 		return err
 	}
@@ -139,19 +133,19 @@ func (w *writerImpl) Close() error {
 
 	for _, table := range &w.tables {
 		n := len(table) << 1
+
 		if n == 0 {
 			pos = 0
 		} else {
 			pos = uint32(w.current)
 		}
 
-		err := writePair(w.writer, pos, uint32(n))
-		if err != nil {
+		if err := writePair(w.writer, pos, uint32(n)); err != nil {
 			return err
 		}
 
-		if !w.addPos(slotSize * n) {
-			return errOutOfMemory
+		if err := w.addPos(slotSize * n); err != nil {
+			return err
 		}
 	}
 
@@ -162,19 +156,22 @@ func (w *writerImpl) Close() error {
 	return nil
 }
 
-// addPos try to shift current position on len. Returns true on success otherwise false
-func (w *writerImpl) addPos(offset int) bool {
+// addPos try to shift current position on len. Returns err when was attempt to create a database up to 4 gb
+func (w *writerImpl) addPos(offset int) error {
 	newPos := w.current + int64(offset)
-	if newPos > maxUint {
-		return false
+
+	if newPos >= maxUint {
+		return ErrOutOfMemory
 	}
 
 	w.current = newPos
-	return true
+
+	return nil
 }
 
 // writePair writes binary representation of two uint32 numbers to io.Writer
 func writePair(writer io.Writer, a, b uint32) error {
 	var pairBuf = []uint32{a, b}
+
 	return binary.Write(writer, binary.LittleEndian, pairBuf)
 }

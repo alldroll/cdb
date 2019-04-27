@@ -1,8 +1,9 @@
+// Package cdb provides interfaces for a data structure of the Constant Database
+// proposed by Daniel J. Bernstein http://cr.yp.to/cdb.html
 package cdb
 
-// This library implements the data structure of the Constant Database proposed by Daniel J. Bernstein http://cr.yp.to/cdb.html
-
 import (
+	"errors"
 	"hash"
 	"io"
 )
@@ -18,7 +19,10 @@ const (
 	slotSize = 8
 )
 
-// Hasher is callback for creating new instance of hash.Hash32.
+// ErrOutOfMemory tells that it was an attempt to create a cdb database up to 4 gigabytes
+var ErrOutOfMemory = errors.New("OutOfMemory. CDB can handle any database up to 4 gigabytes")
+
+// Hasher is a callback for creating a new instance of hash.Hash32.
 type Hasher func() hash.Hash32
 
 // CDB is an associative array: it maps strings (``keys'') to strings (``data'').
@@ -28,37 +32,37 @@ type CDB struct {
 
 // Writer provides API for creating database.
 type Writer interface {
-	// Put saves new associated pair <key, value> into databases. Returns not nil error on failure.
+	// Put saves a new associated pair <key, value> into databases. Returns an error on failure.
 	Put(key []byte, value []byte) error
-	// Commit database, make it possible for reading.
+	// Close commits database, makes it possible for reading.
 	Close() error
 }
 
-// Reader provides API for getting values by given keys. All methods are thread safe.
+// Reader provides API for retrieving values, iterating through dataset. All methods are thread safe.
 type Reader interface {
-	// Get returns first value associated with given key or returns nil if there is no associations.
+	// Get returns the first value associated with the given key
 	Get(key []byte) ([]byte, error)
-	// Has returns true if given key exists, otherwise returns false.
+	// Has returns true if the given key exists, otherwise returns false.
 	Has(key []byte) (bool, error)
-	// Iterator returns new Iterator object that points on first record.
+	// Iterator returns a new Iterator object that points on the first record.
 	Iterator() (Iterator, error)
-	// IteratorAt returns new Iterator object that points on first record associated with given key.
+	// IteratorAt returns a new Iterator object that points on the first record associated with the given key.
 	IteratorAt(key []byte) (Iterator, error)
 	// Size returns the size of the dataset
 	Size() int
 }
 
-// Iterator provides API for walking through database's records. Do not share object between multiple goroutines.
+// Iterator provides API for iterating through database's records. Do not share object between multiple goroutines.
 type Iterator interface {
-	// Next moves iterator to the next record. Returns true on success otherwise false.
+	// Next moves the iterator to the next record. Returns true on success otherwise returns false.
 	Next() (bool, error)
-	// Record returns record on which points given iterator.
+	// Record returns the current record
 	Record() Record
-	// HasNext tells can iterator be moved to the next record.
+	// HasNext tells if the iterator can be moved to the next record.
 	HasNext() bool
 }
 
-// Record provides API for reading record key, value. Do not share object between multiple goroutines.
+// Record provides API for reading record key, value.
 type Record interface {
 	// Key returns io.Reader with given record's key and key size.
 	Key() (io.Reader, uint32)
@@ -66,12 +70,13 @@ type Record interface {
 	Value() (io.Reader, uint32)
 }
 
-// New returns new instance of CDB struct.
+// New returns a new instance of CDB struct.
 func New() *CDB {
 	return &CDB{NewHash}
 }
 
-// SetHash tells cdb to use given hash function for calculations. Given hash will be used only for new instances of Reader, Writer, i.e.
+// SetHash tells the cdb to use the given hash function for calculations.
+// Given hash will be used only for new instances of Reader, Writer.
 //
 // h := cdb.New()
 // h.GetWriter(f) ... do some work ( here we use default Hasher )
@@ -81,12 +86,12 @@ func (cdb *CDB) SetHash(hasher Hasher) {
 	cdb.Hasher = hasher
 }
 
-// GetWriter returns new Writer object.
+// GetWriter returns a new Writer object.
 func (cdb *CDB) GetWriter(writer io.WriteSeeker) (Writer, error) {
 	return newWriter(writer, cdb.Hasher)
 }
 
-// GetReader returns new Reader object.
+// GetReader returns a new Reader object.
 func (cdb *CDB) GetReader(reader io.ReaderAt) (Reader, error) {
 	return newReader(reader, cdb.Hasher)
 }
