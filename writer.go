@@ -49,7 +49,7 @@ func newWriter(writer io.WriteSeeker, hasher Hasher) (*writerImpl, error) {
 func (w *writerImpl) Put(key, value []byte) error {
 	lenKey, lenValue := len(key), len(value)
 
-	if lenKey > maxUint || lenValue > maxUint {
+	if uint64(lenKey) > maxUint || uint64(lenValue) > maxUint {
 		return ErrOutOfMemory
 	}
 
