@@ -2,6 +2,7 @@ package cdb
 
 import (
 	"hash/fnv"
+	"io/ioutil"
 	"os"
 	"strconv"
 	"sync"
@@ -9,11 +10,11 @@ import (
 )
 
 func TestShouldReturnAllValues(t *testing.T) {
-	f, _ := os.Create("test.cdb")
+	f, _ := ioutil.TempFile("", "test_*.cdb")
 	defer f.Close()
-	defer os.Remove("test.cdb")
+	defer os.Remove(f.Name())
 
-	handle := New()
+	handle := NewCDB()
 
 	cases := []struct {
 		key, value string
@@ -60,7 +61,7 @@ func TestShouldReturnNilOnNonExistingKeys(t *testing.T) {
 	defer f.Close()
 	defer os.Remove("test.cdb")
 
-	handle := New()
+	handle := NewCDB()
 
 	cases := []struct {
 		key, value string
@@ -122,7 +123,7 @@ func TestConcurrentGet(t *testing.T) {
 	defer f.Close()
 	defer os.Remove("test.cdb")
 
-	handle := New()
+	handle := NewCDB()
 
 	cases := []struct {
 		key, value string
@@ -175,7 +176,7 @@ func TestSetHash(t *testing.T) {
 	defer f.Close()
 	defer os.Remove("test.cdb")
 
-	handle := New()
+	handle := NewCDB()
 	handle.SetHash(fnv.New32)
 
 	cases := []struct {
@@ -222,7 +223,7 @@ func BenchmarkGetReader(b *testing.B) {
 	defer f.Close()
 	defer os.Remove("test.cdb")
 
-	handle := New()
+	handle := NewCDB()
 	writer, _ := handle.GetWriter(f)
 
 	keys := make([][]byte, n)
@@ -247,7 +248,7 @@ func BenchmarkReaderGet(b *testing.B) {
 	defer f.Close()
 	defer os.Remove("test.cdb")
 
-	handle := New()
+	handle := NewCDB()
 	writer, _ := handle.GetWriter(f)
 
 	keys := make([][]byte, n)
@@ -271,7 +272,7 @@ func BenchmarkWriterPut(b *testing.B) {
 	defer f.Close()
 	defer os.Remove("test.cdb")
 
-	handle := New()
+	handle := NewCDB()
 	writer, _ := handle.GetWriter(f)
 
 	for j := 0; j < b.N; j++ {
