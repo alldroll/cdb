@@ -1,5 +1,7 @@
 on: [push, pull_request]
 name: Test
+env:
+  GO111MODULE: on
 jobs:
   test:
     strategy:
@@ -14,5 +16,11 @@ jobs:
         go-version: ${{ matrix.go-version }}
     - name: Checkout code
       uses: actions/checkout@v1
-    - name: Test
+    - uses: actions/cache@v1
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    - name: Tests
       run: go test -v -race
