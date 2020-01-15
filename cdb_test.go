@@ -54,7 +54,7 @@ func (suite *CDBTestSuite) SetupTest() {
 	}
 
 	suite.cdbFile = f
-	suite.cdbHandle = NewCDB()
+	suite.cdbHandle = New()
 
 	// generate test records
 	const testRecordsCount = 10
@@ -162,7 +162,7 @@ func BenchmarkGetReader(b *testing.B) {
 	defer f.Close()
 	defer os.Remove("test.cdb")
 
-	handle := NewCDB()
+	handle := New()
 	writer, _ := handle.GetWriter(f)
 
 	keys := make([][]byte, n)
@@ -187,7 +187,7 @@ func BenchmarkReaderGet(b *testing.B) {
 	defer f.Close()
 	defer os.Remove("test.cdb")
 
-	handle := NewCDB()
+	handle := New()
 	writer, _ := handle.GetWriter(f)
 
 	keys := make([][]byte, n)
@@ -211,7 +211,7 @@ func BenchmarkWriterPut(b *testing.B) {
 	defer f.Close()
 	defer os.Remove("test.cdb")
 
-	handle := NewCDB()
+	handle := New()
 	writer, _ := handle.GetWriter(f)
 
 	for j := 0; j < b.N; j++ {

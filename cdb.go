@@ -70,14 +70,9 @@ type Record interface {
 	Value() (io.Reader, uint32)
 }
 
-// NewCDB returns a new instance of CDB struct.
-func NewCDB() *CDB {
-	return &CDB{NewHash}
-}
-
-// New is NewCDB for backward compatibility
+// New returns a new instance of CDB struct.
 func New() *CDB {
-	return NewCDB()
+	return &CDB{NewHash}
 }
 
 // SetHash tells the cdb to use the given hash function for calculations.
