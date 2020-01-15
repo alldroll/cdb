@@ -4,6 +4,12 @@ env:
   GO111MODULE: on
 jobs:
   test:
+    - uses: actions/cache@v1
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+        ${{ runner.os }}-go-
     strategy:
       matrix:
         go-version: [1.12.x, 1.13.x]
