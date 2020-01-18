@@ -29,36 +29,26 @@ func TestCDBTestSuite(t *testing.T) {
 func (suite *CDBTestSuite) getCDBReader() Reader {
 	// initialize reader
 	reader, err := suite.cdbHandle.GetReader(suite.cdbFile)
-	if err != nil {
-		suite.T().Errorf("Can't get CDB reader: %#v", err)
-		suite.T().FailNow()
-	}
+	suite.Require().Nilf(err, "Can't get CDB reader: %#v", err)
 	return reader
 }
 
 func (suite *CDBTestSuite) getCDBWriter() Writer {
 	// initialize writer
 	writer, err := suite.cdbHandle.GetWriter(suite.cdbFile)
-	if err != nil {
-		suite.T().Errorf("Can't get CDB writer: %#v", err)
-		suite.T().FailNow()
-	}
+	suite.Require().Nilf(err, "Can't get CDB writer: %#v", err)
 	return writer
 }
 
 func (suite *CDBTestSuite) SetupTest() {
 	f, err := ioutil.TempFile("", "test_*.cdb")
-	if err != nil {
-		suite.T().Errorf("Can't open temporary file: %#v", err)
-		suite.T().FailNow()
-	}
+	suite.Require().Nilf(err, "Can't open temporary file: %#v", err)
 
 	suite.cdbFile = f
-	suite.cdbHandle = New()
+	suite.cdbHandle = New() // create new cdb handle
 
 	// generate test records
-	const testRecordsCount = 10
-	testRecords := make([]testCDBRecord, testRecordsCount)
+	testRecords := make([]testCDBRecord, 10)
 	for i := 0; i < len(testRecords); i++ {
 		stri := strconv.Itoa(i)
 		testRecords[i].key = []byte("key" + stri)
@@ -69,21 +59,22 @@ func (suite *CDBTestSuite) SetupTest() {
 
 func (suite *CDBTestSuite) TearDownTest() {
 	err := suite.cdbFile.Close()
-	suite.Nil(err, "cant close cdb file")
+	suite.Nilf(err, "Can't close cdb file: %#v", err)
 	err = os.Remove(suite.cdbFile.Name())
-	suite.Nil(err, "cant remove cdb file")
+	suite.Nilf(err, "Can't remove cdb file: %#v", err)
 }
 
 func (suite *CDBTestSuite) fillTestCDB() {
 
 	writer := suite.getCDBWriter()
-	defer writer.Close()
+	defer func () {
+		err := writer.Close();
+		suite.Require().Nilf(err, "Can't close cdb writer: %#v", err)
+	}()
 
 	for _, rec := range suite.testRecords {
 		err := writer.Put(rec.key, rec.val)
-		if err != nil {
-			suite.T().Error(err)
-		}
+		suite.Require().Nilf(err, "Cant put new value to cdb: %#v", err)
 	}
 
 }
@@ -99,7 +90,7 @@ func (suite *CDBTestSuite) TestShouldReturnAllValues() {
 
 	for _, rec := range suite.testRecords {
 		value, err := reader.Get(rec.key)
-		suite.Nilf(err, "cant get from cdb key: %s", string(rec.key))
+		suite.Nilf(err, "Can't get from cdb key: %s", string(rec.key))
 
 		suite.Equalf(value, rec.val, "Test record value differs from the cdb's one")
 		exists, err := reader.Has(rec.key)
@@ -112,13 +103,15 @@ func (suite *CDBTestSuite) TestShouldReturnAllValues() {
 
 func (suite *CDBTestSuite) TestShouldReturnNilOnNonExistingKeys() {
 	writer := suite.getCDBWriter()
-	writer.Close()
+	err := writer.Close()
+	suite.Require().Nilf(err, "Can't close writer %#v", err)
+
 
 	reader := suite.getCDBReader()
 
 	for _, rec := range suite.testRecords {
 		value, err := reader.Get(rec.key)
-		suite.Nilf(err, "cant get from cdb key: %s", string(rec.key))
+		suite.Nilf(err, "Can't get from cdb key: %s", string(rec.key))
 		suite.Nil(value, "Value must be nil for non existing keys")
 
 		exists, err := reader.Has(rec.key)
