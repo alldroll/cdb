@@ -103,7 +103,7 @@ func (suite *CDBTestSuite) TestShouldReturnAllValues() {
 
 func (suite *CDBTestSuite) TestShouldReturnNilOnNonExistingKeys() {
 	writer := suite.getCDBWriter()
-	err := writer.Close()
+	err := writer.Close() // write empty cdb file
 	suite.Require().Nilf(err, "Can't close writer %#v", err)
 
 
