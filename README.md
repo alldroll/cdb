@@ -6,14 +6,14 @@
 cdb is a fast, reliable, simple package for creating and reading constant databases
 see [docs](http://cr.yp.to/cdb.html) for more details
 
-Advantages
+## Advantages
 
 * Iterator support
 * Thread safe for reading
 * Lazily key, value reading using io.SectionReader
 * Buffered disc write
 
-Example
+## Example
 -------
 
 ```go
@@ -50,3 +50,7 @@ for _, c := range data {
     value, err := reader.Get([]byte(c.key))
 }
 ```
+
+## Performance tricks
+
+* File `mmap` shows better performance.  [Example.](https://github.com/suggest-go/suggest/blob/dd353d3e1297ac79ed573563187fe4f156c4bcaa/pkg/dictionary/helpers.go#L15)
