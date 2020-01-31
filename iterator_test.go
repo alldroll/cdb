@@ -193,7 +193,6 @@ func TestIteratorAt(t *testing.T) {
 }
 
 func BenchmarkReaderIteratorAt(b *testing.B) {
-	b.StopTimer()
 
 	n := 1000
 	f, _ := os.Create("test.cdb")
@@ -210,7 +209,7 @@ func BenchmarkReaderIteratorAt(b *testing.B) {
 	}
 
 	writer.Close()
-	b.StartTimer()
+	b.ResetTimer()
 
 	reader, _ := handle.GetReader(f)
 

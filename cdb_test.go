@@ -67,8 +67,8 @@ func (suite *CDBTestSuite) TearDownTest() {
 func (suite *CDBTestSuite) fillTestCDB() {
 
 	writer := suite.getCDBWriter()
-	defer func () {
-		err := writer.Close();
+	defer func() {
+		err := writer.Close()
 		suite.Require().Nilf(err, "Can't close cdb writer: %#v", err)
 	}()
 
@@ -105,7 +105,6 @@ func (suite *CDBTestSuite) TestShouldReturnNilOnNonExistingKeys() {
 	writer := suite.getCDBWriter()
 	err := writer.Close() // write empty cdb file
 	suite.Require().Nilf(err, "Can't close writer %#v", err)
-
 
 	reader := suite.getCDBReader()
 
@@ -148,7 +147,6 @@ func (suite *CDBTestSuite) TestSetHash() {
 }
 
 func BenchmarkGetReader(b *testing.B) {
-	b.StopTimer()
 
 	n := 1000
 	f, _ := os.Create("test.cdb")
@@ -165,15 +163,15 @@ func BenchmarkGetReader(b *testing.B) {
 	}
 
 	writer.Close()
-	b.StartTimer()
 
+	b.ResetTimer()
 	for j := 0; j < b.N; j++ {
 		handle.GetReader(f)
 	}
+
 }
 
 func BenchmarkReaderGet(b *testing.B) {
-	b.StopTimer()
 
 	n := 1000
 	f, _ := os.Create("test.cdb")
@@ -190,13 +188,13 @@ func BenchmarkReaderGet(b *testing.B) {
 	}
 
 	writer.Close()
-	b.StartTimer()
-
 	reader, _ := handle.GetReader(f)
 
+	b.ResetTimer()
 	for j := 0; j < b.N; j++ {
 		reader.Get(keys[j%n])
 	}
+
 }
 
 func BenchmarkWriterPut(b *testing.B) {
@@ -207,6 +205,7 @@ func BenchmarkWriterPut(b *testing.B) {
 	handle := New()
 	writer, _ := handle.GetWriter(f)
 
+	b.ResetTimer()
 	for j := 0; j < b.N; j++ {
 		key := []byte(strconv.Itoa(j))
 		writer.Put(key, key)
