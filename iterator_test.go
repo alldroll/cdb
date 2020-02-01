@@ -96,10 +96,9 @@ func BenchmarkReaderIteratorAt(b *testing.B) {
 	}
 
 	writer.Close()
-	b.ResetTimer()
-
 	reader, _ := handle.GetReader(f)
 
+	b.ResetTimer()
 	for j := 0; j < b.N; j++ {
 		reader.IteratorAt(keys[j%n])
 	}
