@@ -14,7 +14,6 @@ see [docs](http://cr.yp.to/cdb.html) for more details
 * Buffered disc write
 
 ## Example
--------
 
 ```go
 f, _ := os.Create("test.cdb")
