@@ -80,7 +80,6 @@ func (suite *CDBTestSuite) TestIteratorAt() {
 }
 
 func BenchmarkReaderIteratorAt(b *testing.B) {
-	b.StopTimer()
 
 	n := 1000
 	f, _ := os.Create("test.cdb")
@@ -97,10 +96,9 @@ func BenchmarkReaderIteratorAt(b *testing.B) {
 	}
 
 	writer.Close()
-	b.StartTimer()
-
 	reader, _ := handle.GetReader(f)
 
+	b.ResetTimer()
 	for j := 0; j < b.N; j++ {
 		reader.IteratorAt(keys[j%n])
 	}
