@@ -101,10 +101,14 @@ func (suite *CDBTestSuite) TestShouldReturnAllValues() {
 	suite.Equal(reader.Size(), len(suite.testRecords), "check records count")
 }
 
-func (suite *CDBTestSuite) TestShouldReturnNilOnNonExistingKeys() {
+func (suite *CDBTestSuite) writeEmptyCDB() {
 	writer := suite.getCDBWriter()
-	err := writer.Close() // write empty cdb file
+	err := writer.Close()
 	suite.Require().Nilf(err, "Can't close writer %#v", err)
+}
+
+func (suite *CDBTestSuite) TestShouldReturnNilOnNonExistingKeys() {
+	suite.writeEmptyCDB()
 
 	reader := suite.getCDBReader()
 

@@ -1,194 +1,81 @@
 package cdb
 
 import (
-	"io"
 	"os"
 	"strconv"
 	"testing"
 )
 
-func TestIteratorOnEmptyDataSet(t *testing.T) {
-	f, _ := os.Create("test.cdb")
-	defer f.Close()
-	defer os.Remove("test.cdb")
-
-	handle := New()
-
-	writer, err := handle.GetWriter(f)
-	if err != nil {
-		t.Error(err)
-	}
-
-	writer.Close()
-	reader, _ := handle.GetReader(f)
-
+func (suite *CDBTestSuite) getCDBIterator() Iterator {
+	reader := suite.getCDBReader()
 	iterator, err := reader.Iterator()
-	if err != nil {
-		t.Errorf("Got unexpected error %v", err)
-	}
-
-	if iterator.HasNext() {
-		t.Errorf("Iterator should not be deferencable")
-	}
-
-	ok, err := iterator.Next()
-	if ok {
-		t.Errorf("Next should returns true")
-	}
-
-	if err != nil {
-		t.Errorf("Got unexpected error %v", err)
-	}
+	suite.Require().Nilf(err, "Iterator creation error: %#v", err)
+	return iterator
 }
 
-func TestIterator(t *testing.T) {
-	f, _ := os.Create("test.cdb")
-	defer f.Close()
-	defer os.Remove("test.cdb")
+func (suite *CDBTestSuite) TestIteratorOnEmptyDataSet() {
+	suite.writeEmptyCDB()
 
-	handle := New()
+	iterator := suite.getCDBIterator()
 
-	cases := []struct {
-		key, value string
-	}{
-		{"key1", "value1"},
-		{"key2", "value2"},
-		{"key3", "value3"},
-		{"key4", "value4"},
-		{"key5", "value5"},
-		{"key6", "value61"},
-		{"key6", "value62"},
-		{"key7", "value7"},
-	}
-
-	writer, err := handle.GetWriter(f)
-	if err != nil {
-		t.Error(err)
-	}
-
-	for _, c := range cases {
-		writer.Put([]byte(c.key), []byte(c.value))
-	}
-
-	writer.Close()
-	reader, _ := handle.GetReader(f)
-
-	iterator, err := reader.Iterator()
-	if err != nil {
-		t.Errorf("Got unexpected error %s", err)
-	}
-
-	for _, c := range cases {
-		record := iterator.Record()
-
-		keyReader, keySize := record.Key()
-		key := make([]byte, int(keySize))
-		if _, err = keyReader.Read(key); err != nil {
-			t.Error(err)
-		}
-
-		valReader, valSize := record.Value()
-		value := make([]byte, int(valSize))
-		if _, err = valReader.Read(value); err != nil {
-			t.Error(err)
-		}
-
-		if c.key != string(key) || c.value != string(value) {
-			t.Errorf(
-				"Expected key to be %s, value to be %s, got %s, %s",
-				c.key,
-				c.value,
-				key,
-				value,
-			)
-		}
-
-		_, err := iterator.Next()
-		if err != nil {
-			t.Errorf("Got unexpected error %s", err)
-		}
-	}
+	suite.False(iterator.HasNext(), "Iterator must return false on HasNext")
 
 	ok, err := iterator.Next()
-	if ok {
-		t.Errorf("Next should return false")
-	}
-
-	if err != nil {
-		t.Errorf("Got unexpected error %s", err)
-	}
+	suite.False(ok, "Next should returns false")
+	suite.Nilf(err, "Got unexpected error %v", err)
 }
 
-func TestIteratorAt(t *testing.T) {
-	f, _ := os.Create("test.cdb")
-	defer f.Close()
-	defer os.Remove("test.cdb")
+func (suite *CDBTestSuite) EqualRecords(record Record, testRec testCDBRecord) {
 
-	handle := New()
+	keyReader, keySize := record.Key()
+	key := make([]byte, int(keySize))
+	readSize, err := keyReader.Read(key)
+	suite.Equal(readSize, int(keySize))
+	suite.Nilf(err, "Eror on reading key %s: %#v", string(key), err)
 
-	cases := []struct {
-		key, value string
-	}{
-		{"key1", "value1"},
-		{"key2", "value2"},
-		{"key3", "value3"},
-		{"key4", "value4"},
-		{"key5", "value5"},
-		{"key6", "value6"},
-	}
+	valReader, valSize := record.Value()
+	value := make([]byte, int(valSize))
+	readSize, err = valReader.Read(value)
+	suite.Equal(readSize, int(valSize))
+	suite.Nilf(err, "Eror on reading value %s: %#v", string(value), err)
 
-	writer, err := handle.GetWriter(f)
-	if err != nil {
-		t.Error(err)
-	}
+	suite.Equal(testRec.key, key, "Keys must be equal. Got: %s, Expected: %s", key, testRec.key)
+	suite.Equal(testRec.val, value, "Values must be equal. Got: %s, Expected: %s", value, testRec.val)
+}
 
-	for _, c := range cases {
-		writer.Put([]byte(c.key), []byte(c.value))
-	}
+func (suite *CDBTestSuite) TestIterator() {
+	suite.fillTestCDB()
 
-	writer.Close()
-	reader, _ := handle.GetReader(f)
+	iterator := suite.getCDBIterator()
 
-	for _, c := range cases {
-		iterator, err := reader.IteratorAt([]byte(c.key))
+	for i, testRec := range suite.testRecords {
+		record := iterator.Record()
+		suite.EqualRecords(record, testRec)
 
-		if err != nil {
-			t.Errorf("Got unexpected error %s", err)
+		ok, err := iterator.Next()
+		suite.Nilf(err, "Error on interator.Next: %#v", err)
+
+		if i == len(suite.testRecords)-1 {
+			suite.False(ok, "Iterator must return False on last record")
+		} else {
+			suite.True(ok, "Iterator has not enough records")
 		}
+	}
+
+	ok := iterator.HasNext()
+	suite.False(ok, "HasNext should returns false if has no more records")
+}
+
+func (suite *CDBTestSuite) TestIteratorAt() {
+	suite.fillTestCDB()
+	reader := suite.getCDBReader()
+
+	for _, testRec := range suite.testRecords {
+		iterator, err := reader.IteratorAt(testRec.key)
+		suite.Nilf(err, "Unexpected error for reader.IteratorAt: %#v", err)
 
 		record := iterator.Record()
-
-		var (
-			keyReader, valReader io.Reader
-			keySize, valSize     uint32
-			key, value           []byte
-		)
-
-		for i := 0; i < 10; i++ {
-			keyReader, keySize = record.Key()
-			key = make([]byte, int(keySize))
-
-			if _, err = keyReader.Read(key); err != nil {
-				t.Error(err)
-			}
-
-			valReader, valSize = record.Value()
-			value = make([]byte, int(valSize))
-
-			if _, err = valReader.Read(value); err != nil {
-				t.Error(err)
-			}
-		}
-
-		if c.key != string(key) || c.value != string(value) {
-			t.Errorf(
-				"Expected key to be %s, value to be %s, got %s, %s",
-				c.key,
-				c.value,
-				key,
-				value,
-			)
-		}
+		suite.EqualRecords(record, testRec)
 	}
 }
 
