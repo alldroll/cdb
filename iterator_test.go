@@ -25,15 +25,19 @@ func (suite *CDBTestSuite) TestIteratorOnEmptyDataSet() {
 	suite.Nilf(err, "Got unexpected error %v", err)
 }
 
+func (suite *CDBTestSuite) EqualKeyValue(iter Iterator, testRec testCDBRecord) {
+	suite.EqualRecords(iter.Record(), testRec)
+
+	key, err := iter.Key()
+	suite.Nilf(err, "Cant get key: %#v", err)
+	value, err := iter.Value()
+	suite.Nilf(err, "Cant get value: %#v", err)
+
+	suite.Equal(testRec.key, key, "Keys must be equal. Got: %s, Expected: %s", key, testRec.key)
+	suite.Equal(testRec.val, value, "Values must be equal. Got: %s, Expected: %s", value, testRec.val)
+}
+
 func (suite *CDBTestSuite) EqualRecords(record Record, testRec testCDBRecord) {
-
-	keyBytes, err := record.KeyBytes()
-	suite.Nilf(err, "Eror on KeyBytes %#v", err)
-	suite.Equal(testRec.key, keyBytes)
-
-	valBytes, err := record.ValueBytes()
-	suite.Nilf(err, "Eror on ValueBytes %#v", err)
-	suite.Equal(testRec.val, valBytes)
 
 	keyReader, keySize := record.Key()
 	key := make([]byte, int(keySize))
@@ -57,8 +61,7 @@ func (suite *CDBTestSuite) TestIterator() {
 	iterator := suite.getCDBIterator()
 
 	for i, testRec := range suite.testRecords {
-		record := iterator.Record()
-		suite.EqualRecords(record, testRec)
+		suite.EqualKeyValue(iterator, testRec)
 
 		ok, err := iterator.Next()
 		suite.Nilf(err, "Error on interator.Next: %#v", err)
@@ -74,6 +77,20 @@ func (suite *CDBTestSuite) TestIterator() {
 	suite.False(ok, "HasNext should returns false if has no more records")
 }
 
+func (suite *CDBTestSuite) TestIteratorNext() {
+	suite.fillTestCDB()
+	iterator := suite.getCDBIterator()
+
+	record1 := iterator.Record()
+	suite.EqualRecords(record1, suite.testRecords[0])
+
+	iterator.Next()
+	record2 := iterator.Record()
+	suite.EqualRecords(record2, suite.testRecords[1])
+
+	suite.EqualRecords(record1, suite.testRecords[0])
+}
+
 func (suite *CDBTestSuite) TestIteratorAt() {
 	suite.fillTestCDB()
 	reader := suite.getCDBReader()
@@ -82,8 +99,7 @@ func (suite *CDBTestSuite) TestIteratorAt() {
 		iterator, err := reader.IteratorAt(testRec.key)
 		suite.Nilf(err, "Unexpected error for reader.IteratorAt: %#v", err)
 
-		record := iterator.Record()
-		suite.EqualRecords(record, testRec)
+		suite.EqualKeyValue(iterator, testRec)
 	}
 }
 
@@ -119,13 +135,13 @@ func BenchmarkIteratorNext(b *testing.B) {
 
 	b.ResetTimer()
 	for j := 0; j < b.N; j++ {
-		_, _ = iter.Next()
+		iter.Next()
 	}
 	b.StopTimer()
 
 }
 
-func BenchmarkIteratorKey(b *testing.B) {
+func BenchmarkIteratorRecordKey(b *testing.B) {
 	iter, f := getTestCDBIterator(b)
 	defer f.Close()
 	defer os.Remove(f.Name())
@@ -140,14 +156,14 @@ func BenchmarkIteratorKey(b *testing.B) {
 
 }
 
-func BenchmarkIteratorKeyBytes(b *testing.B) {
+func BenchmarkIteratorKey(b *testing.B) {
 	iter, f := getTestCDBIterator(b)
 	defer f.Close()
 	defer os.Remove(f.Name())
 
 	b.ResetTimer()
 	for j := 0; j < b.N; j++ {
-		iter.Record().KeyBytes()
+		iter.Key()
 	}
 	b.StopTimer()
 }

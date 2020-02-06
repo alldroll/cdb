@@ -63,9 +63,32 @@ func (i *iterator) Next() (bool, error) {
 	return true, nil
 }
 
-// Record returns the current record
+// KeyBytes returns key's []byte slice. It is usually easier to use and
+// faster then Key(). Because it doesn't requiers allocation for SectionReader
+func (i *iterator) Key() ([]byte, error) {
+	return i.record.keySectionFactory.read()
+}
+
+// ValueBytes returns values's []byte slice. It is usually easier to use and
+// faster then Value(). Because it doesn't requiers allocation for SectionReader
+func (i *iterator) Value() ([]byte, error) {
+	return i.record.valueSectionFactory.read()
+}
+
+// Record returns copy of current record
 func (i *iterator) Record() Record {
-	return i.record
+	return &record{
+		keySectionFactory: &sectionReaderFactory{
+			reader:   i.record.keySectionFactory.reader,
+			position: i.record.keySectionFactory.position,
+			size:     i.record.keySectionFactory.size,
+		},
+		valueSectionFactory: &sectionReaderFactory{
+			reader:   i.record.valueSectionFactory.reader,
+			position: i.record.valueSectionFactory.position,
+			size:     i.record.valueSectionFactory.size,
+		},
+	}
 }
 
 // HasNext tells if the iterator can be moved to the next record.
@@ -81,16 +104,4 @@ func (r *record) Key() (io.Reader, uint32) {
 // Value returns io.Reader with given record's value and value size.
 func (r *record) Value() (io.Reader, uint32) {
 	return r.valueSectionFactory.create()
-}
-
-// KeyBytes returns key's []byte slice. It is usually easier to use and
-// faster then Key(). Because it doesn't requiers allocation for SectionReader
-func (r *record) KeyBytes() ([]byte, error) {
-	return r.keySectionFactory.read()
-}
-
-// ValueBytes returns values's []byte slice. It is usually easier to use and
-// faster then Value(). Because it doesn't requiers allocation for SectionReader
-func (r *record) ValueBytes() ([]byte, error) {
-	return r.valueSectionFactory.read()
 }

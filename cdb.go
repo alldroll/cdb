@@ -56,10 +56,18 @@ type Reader interface {
 type Iterator interface {
 	// Next moves the iterator to the next record. Returns true on success otherwise returns false.
 	Next() (bool, error)
-	// Record returns the current record
+	// Record returns the current record. Thie method is lazy. It means, a data is read on require.
 	Record() Record
 	// HasNext tells if the iterator can be moved to the next record.
 	HasNext() bool
+	// Key returns key's []byte slice. It is usually easier to use and
+	// faster then iterator.Record()Key().
+	// Because it doesn't requiers allocation for record copy.
+	Key() ([]byte, error)
+	// ValueBytes returns values's []byte slice. It is usually easier to use and
+	// faster then iterator.Record()Key().
+	// Because it doesn't requiers allocation for record copy.
+	Value() ([]byte, error)
 }
 
 // Record provides API for reading record key, value.
@@ -68,12 +76,6 @@ type Record interface {
 	Key() (io.Reader, uint32)
 	// Value returns io.Reader with given record's value and value size.
 	Value() (io.Reader, uint32)
-	// KeyBytes returns key's []byte slice. It is usually easier to use and
-	// faster then Key(). Because it doesn't requiers allocation for SectionReader
-	KeyBytes() ([]byte, error)
-	// ValueBytes returns values's []byte slice. It is usually easier to use and
-	// faster then Value(). Because it doesn't requiers allocation for SectionReader
-	ValueBytes() ([]byte, error)
 }
 
 // New returns a new instance of CDB struct.
