@@ -32,7 +32,7 @@ func (s *sectionReaderFactory) create() (io.Reader, uint32) {
 func (s *sectionReaderFactory) read() ([]byte, error) {
 	recSize := s.size
 	val := make([]byte, recSize)
-	_, err := s.reader.ReadAt(val, int64(recSize))
+	_, err := s.reader.ReadAt(val, int64(s.position))
 	if err != nil {
 		return nil, err
 	}

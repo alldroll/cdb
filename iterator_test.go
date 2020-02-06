@@ -27,6 +27,14 @@ func (suite *CDBTestSuite) TestIteratorOnEmptyDataSet() {
 
 func (suite *CDBTestSuite) EqualRecords(record Record, testRec testCDBRecord) {
 
+	keyBytes, err := record.KeyBytes()
+	suite.Nilf(err, "Eror on KeyBytes %#v", err)
+	suite.Equal(testRec.key, keyBytes)
+
+	valBytes, err := record.ValueBytes()
+	suite.Nilf(err, "Eror on ValueBytes %#v", err)
+	suite.Equal(testRec.val, valBytes)
+
 	keyReader, keySize := record.Key()
 	key := make([]byte, int(keySize))
 	readSize, err := keyReader.Read(key)
