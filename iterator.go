@@ -30,7 +30,6 @@ func (s *sectionReaderFactory) create() (io.Reader, uint32) {
 
 // Next moves the iterator to the next record. Returns true on success otherwise returns false.
 func (i *iterator) Next() (bool, error) {
-	i.record = nil
 
 	if !i.HasNext() {
 		return false, nil
@@ -42,18 +41,11 @@ func (i *iterator) Next() (bool, error) {
 		return false, err
 	}
 
-	i.record = &record{
-		keySectionFactory: &sectionReaderFactory{
-			reader:   i.cdbReader.reader,
-			position: i.position + 8,
-			size:     keySize,
-		},
-		valueSectionFactory: &sectionReaderFactory{
-			reader:   i.cdbReader.reader,
-			position: i.position + 8 + keySize,
-			size:     valSize,
-		},
-	}
+	i.record.keySectionFactory.position = i.position + 8
+	i.record.keySectionFactory.size = keySize
+
+	i.record.valueSectionFactory.position = i.position + 8 + keySize
+	i.record.valueSectionFactory.size = valSize
 
 	i.position += keySize + valSize + 8
 

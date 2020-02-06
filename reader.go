@@ -225,6 +225,18 @@ func (r *readerImpl) readPair(pos uint32, a, b *uint32) error {
 
 // newIterator returns new instance of Iterator object
 func (r *readerImpl) newIterator(position uint32, keySectionFactory, valueSectionFactory *sectionReaderFactory) Iterator {
+
+	if keySectionFactory == nil {
+		keySectionFactory = &sectionReaderFactory{
+			reader: r.reader,
+		}
+	}
+	if valueSectionFactory == nil {
+		valueSectionFactory = &sectionReaderFactory{
+			reader: r.reader,
+		}
+	}
+
 	return &iterator{
 		position:  position,
 		cdbReader: r,
