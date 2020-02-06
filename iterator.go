@@ -28,6 +28,17 @@ func (s *sectionReaderFactory) create() (io.Reader, uint32) {
 	return io.NewSectionReader(s.reader, int64(s.position), int64(s.size)), s.size
 }
 
+// read reads current record. Returns []byte and error
+func (s *sectionReaderFactory) read() ([]byte, error) {
+	recSize := s.size
+	val := make([]byte, recSize)
+	_, err := s.reader.ReadAt(val, int64(recSize))
+	if err != nil {
+		return nil, err
+	}
+	return val, nil
+}
+
 // Next moves the iterator to the next record. Returns true on success otherwise returns false.
 func (i *iterator) Next() (bool, error) {
 
@@ -70,4 +81,16 @@ func (r *record) Key() (io.Reader, uint32) {
 // Value returns io.Reader with given record's value and value size.
 func (r *record) Value() (io.Reader, uint32) {
 	return r.valueSectionFactory.create()
+}
+
+// KeyBytes returns key's []byte slice. It is usually easier to use and
+// faster then Key(). Because it doesn't requiers allocation for SectionReader
+func (r *record) KeyBytes() ([]byte, error) {
+	return r.keySectionFactory.read()
+}
+
+// ValueBytes returns values's []byte slice. It is usually easier to use and
+// faster then Value(). Because it doesn't requiers allocation for SectionReader
+func (r *record) ValueBytes() ([]byte, error) {
+	return r.valueSectionFactory.read()
 }

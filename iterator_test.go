@@ -105,13 +105,56 @@ func BenchmarkIteratorAt(b *testing.B) {
 }
 
 func BenchmarkIteratorNext(b *testing.B) {
-
-	f, _ := os.Create("test.cdb")
+	iter, f := getTestCDBIterator(b)
 	defer f.Close()
-	defer os.Remove("test.cdb")
+	defer os.Remove(f.Name())
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		_, _ = iter.Next()
+	}
+	b.StopTimer()
+
+}
+
+func BenchmarkIteratorKey(b *testing.B) {
+	iter, f := getTestCDBIterator(b)
+	defer f.Close()
+	defer os.Remove(f.Name())
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		reader, size := iter.Record().Key()
+		key := make([]byte, size)
+		reader.Read(key)
+	}
+	b.StopTimer()
+
+}
+
+func BenchmarkIteratorKeyBytes(b *testing.B) {
+	iter, f := getTestCDBIterator(b)
+	defer f.Close()
+	defer os.Remove(f.Name())
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		iter.Record().KeyBytes()
+	}
+	b.StopTimer()
+}
+
+func getTestCDBIterator(b *testing.B) (Iterator, *os.File) {
+	f, err := os.Create("test.cdb")
+	if err != nil {
+		panic(err)
+	}
 
 	handle := New()
-	writer, _ := handle.GetWriter(f)
+	writer, err := handle.GetWriter(f)
+	if err != nil {
+		panic(err)
+	}
 
 	keys := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
@@ -120,11 +163,15 @@ func BenchmarkIteratorNext(b *testing.B) {
 	}
 
 	writer.Close()
-	reader, _ := handle.GetReader(f)
-
-	iter, _ := reader.Iterator()
-	b.ResetTimer()
-	for j := 0; j < b.N; j++ {
-		_, _ = iter.Next()
+	reader, err := handle.GetReader(f)
+	if err != nil {
+		panic(err)
 	}
+
+	iter, err := reader.Iterator()
+	if err != nil {
+		panic(err)
+	}
+
+	return iter, f
 }

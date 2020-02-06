@@ -68,6 +68,12 @@ type Record interface {
 	Key() (io.Reader, uint32)
 	// Value returns io.Reader with given record's value and value size.
 	Value() (io.Reader, uint32)
+	// KeyBytes returns key's []byte slice. It is usually easier to use and
+	// faster then Key(). Because it doesn't requiers allocation for SectionReader
+	KeyBytes() ([]byte, error)
+	// ValueBytes returns values's []byte slice. It is usually easier to use and
+	// faster then Value(). Because it doesn't requiers allocation for SectionReader
+	ValueBytes() ([]byte, error)
 }
 
 // New returns a new instance of CDB struct.
