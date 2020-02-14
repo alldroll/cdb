@@ -2,6 +2,7 @@ package cdb
 
 import (
 	"bytes"
+	"fmt"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -58,9 +59,16 @@ func (r *readerImpl) initialize() error {
 			break
 		}
 	}
+	fmt.Println("endpos:", r.endPos)
 
 	return nil
 }
+
+// IsEmpty returns true if cdb has no records
+func (r *readerImpl) IsEmpty() bool {
+	return r.endPos == 0
+}
+
 
 // Get returns the first value associated with the given key
 func (r *readerImpl) Get(key []byte) ([]byte, error) {

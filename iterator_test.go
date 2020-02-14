@@ -103,6 +103,24 @@ func (suite *CDBTestSuite) TestIteratorAt() {
 	}
 }
 
+func (suite *CDBTestSuite) TestIteratorEmpty() {
+	writer := suite.getCDBWriter()
+	suite.Require().Nilf(writer.Close(), "Can't close cdb writer")
+
+	iterator := suite.getCDBIterator()
+	suite.False(iterator.HasNext(), "Has next must be false on empty cdb")
+
+	suite.Nil(iterator.Record()) // now it is not empty
+
+	key, err := iterator.Key()
+	suite.Nil(key) // now it is not empty
+	suite.EqualError(err, ErrEmptyCDB.Error())
+
+	val, err := iterator.Value()
+	suite.Nil(val)
+	suite.EqualError(err, ErrEmptyCDB.Error())
+}
+
 func BenchmarkIteratorAt(b *testing.B) {
 
 	n := 1000

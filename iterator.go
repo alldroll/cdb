@@ -1,8 +1,11 @@
 package cdb
 
 import (
+	"errors"
 	"io"
 )
+
+var ErrEmptyCDB = errors.New("cdb is empty")
 
 // iterator implements Iterator interface
 type iterator struct {
@@ -33,7 +36,7 @@ func readSection(readerAt io.ReaderAt, position int64, size uint32) ([]byte, err
 	val := make([]byte, size)
 	readSize, err := readerAt.ReadAt(val, position)
 	if err != nil {
-		if err == io.EOF  && readSize == int(size) {
+		if err == io.EOF && readSize == int(size) {
 			return val, nil
 		}
 		return nil, err
@@ -43,7 +46,6 @@ func readSection(readerAt io.ReaderAt, position int64, size uint32) ([]byte, err
 
 // Next moves the iterator to the next record. Returns true on success otherwise returns false.
 func (i *iterator) Next() (bool, error) {
-
 	if !i.HasNext() {
 		return false, nil
 	}
@@ -68,6 +70,9 @@ func (i *iterator) Next() (bool, error) {
 // KeyBytes returns key's []byte slice. It is usually easier to use and
 // faster then Key(). Because it doesn't requiers allocation for SectionReader
 func (i *iterator) Key() ([]byte, error) {
+	if i.cdbReader.IsEmpty() {
+		return nil, ErrEmptyCDB
+	}
 	keyFactory := i.record.keySectionFactory
 	return readSection(keyFactory.reader, int64(keyFactory.position), keyFactory.size)
 }
@@ -75,12 +80,19 @@ func (i *iterator) Key() ([]byte, error) {
 // ValueBytes returns values's []byte slice. It is usually easier to use and
 // faster then Value(). Because it doesn't requiers allocation for SectionReader
 func (i *iterator) Value() ([]byte, error) {
+	if i.cdbReader.IsEmpty() {
+		return nil, ErrEmptyCDB
+	}
 	valueFactory := i.record.valueSectionFactory
 	return readSection(valueFactory.reader, int64(valueFactory.position), valueFactory.size)
 }
 
 // Record returns copy of current record
 func (i *iterator) Record() Record {
+	if i.cdbReader.IsEmpty() {
+		return nil
+	}
+
 	return &record{
 		keySectionFactory: &sectionReaderFactory{
 			reader:   i.record.keySectionFactory.reader,
@@ -97,6 +109,9 @@ func (i *iterator) Record() Record {
 
 // HasNext tells if the iterator can be moved to the next record.
 func (i *iterator) HasNext() bool {
+	if i.cdbReader.IsEmpty() {
+		return false
+	}
 	return i.position < i.cdbReader.endPos
 }
 
