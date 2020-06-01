@@ -8,6 +8,9 @@ import (
 	"io"
 )
 
+// EntryDoesNotExists could be returned for Get method is cdb has no such key
+var EntryNotFound = errors.New("cdb entry not found")
+
 // hashTableRef is a pointer that state a position and a length of the hash table
 // position is the starting byte position of the hash table.
 // The length is the number of slots in the hash table.
@@ -74,8 +77,11 @@ func (r *readerImpl) IsEmpty() bool {
 func (r *readerImpl) Get(key []byte) ([]byte, error) {
 	valueSection, err := r.findEntry(key)
 
-	if valueSection == nil || err != nil {
+	if err != nil {
 		return nil, err
+	}
+	if valueSection == nil {
+		return EntryNotFound
 	}
 
 	value := make([]byte, valueSection.size)
