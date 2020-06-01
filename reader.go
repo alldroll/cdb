@@ -81,7 +81,7 @@ func (r *readerImpl) Get(key []byte) ([]byte, error) {
 		return nil, err
 	}
 	if valueSection == nil {
-		return EntryNotFound
+		return nil, EntryNotFound
 	}
 
 	value := make([]byte, valueSection.size)
