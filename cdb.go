@@ -56,7 +56,7 @@ type Reader interface {
 type Iterator interface {
 	// Next moves the iterator to the next record. Returns true on success otherwise returns false.
 	Next() (bool, error)
-	// Record returns the current record. Thie method is lazy. It means, a data is read on require.
+	// Record returns the current record. This method is lazy. It means, a data is read on require.
 	Record() Record
 	// HasNext tells if the iterator can be moved to the next record.
 	HasNext() bool
