@@ -114,7 +114,7 @@ func (suite *CDBTestSuite) TestShouldReturnNilOnNonExistingKeys() {
 
 	for _, rec := range suite.testRecords {
 		value, err := reader.Get(rec.key)
-		suite.Error(err, "Can't get from cdb key: %s", string(rec.key))
+		suite.EqualError(err, ErrEntryNotFound.Error(), "Can't get from cdb key: %s", string(rec.key))
 		suite.Nil(value, "Value must be nil for non existing keys")
 
 		exists, err := reader.Has(rec.key)
