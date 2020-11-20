@@ -67,15 +67,15 @@ func (i *iterator) Next() (bool, error) {
 	return true, nil
 }
 
-// KeyBytes returns key's []byte slice. It is usually easier to use and
-// faster then Key(). Because it doesn't requiers allocation for SectionReader
+// Key returns key's []byte slice. It is usually easier to use and
+// faster then iterator.Record().Key(). Because it doesn't requiers allocation for SectionReader
 func (i *iterator) Key() ([]byte, error) {
 	keyFactory := i.record.keySectionFactory
 	return readSection(keyFactory.reader, int64(keyFactory.position), keyFactory.size)
 }
 
-// ValueBytes returns values's []byte slice. It is usually easier to use and
-// faster then Value(). Because it doesn't requiers allocation for SectionReader
+// Value returns values's []byte slice. It is usually easier to use and
+// faster then iterator.Record().Value(). Because it doesn't requiers allocation for SectionReader
 func (i *iterator) Value() ([]byte, error) {
 	valueFactory := i.record.valueSectionFactory
 	return readSection(valueFactory.reader, int64(valueFactory.position), valueFactory.size)

@@ -61,11 +61,11 @@ type Iterator interface {
 	// HasNext tells if the iterator can be moved to the next record.
 	HasNext() bool
 	// Key returns key's []byte slice. It is usually easier to use and
-	// faster then iterator.Record()Key().
+	// faster then iterator.Record().Key().
 	// Because it doesn't requiers allocation for record copy.
 	Key() ([]byte, error)
 	// ValueBytes returns values's []byte slice. It is usually easier to use and
-	// faster then iterator.Record()Key().
+	// faster then iterator.Record().Key().
 	// Because it doesn't requiers allocation for record copy.
 	Value() ([]byte, error)
 }
