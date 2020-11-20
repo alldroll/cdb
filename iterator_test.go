@@ -90,7 +90,7 @@ func (suite *CDBTestSuite) TestIteratorNext() {
 	record2 := iterator.Record()
 	suite.EqualRecords(record2, suite.testRecords[1])
 
-	suite.EqualRecords(record1, suite.testRecords[0])
+	suite.NotEqual(record1, record2)
 }
 
 func (suite *CDBTestSuite) TestIteratorAt() {
