@@ -70,9 +70,6 @@ func (i *iterator) Next() (bool, error) {
 // KeyBytes returns key's []byte slice. It is usually easier to use and
 // faster then Key(). Because it doesn't requiers allocation for SectionReader
 func (i *iterator) Key() ([]byte, error) {
-	if i.cdbReader.IsEmpty() {
-		return nil, ErrEmptyCDB
-	}
 	keyFactory := i.record.keySectionFactory
 	return readSection(keyFactory.reader, int64(keyFactory.position), keyFactory.size)
 }
@@ -80,19 +77,12 @@ func (i *iterator) Key() ([]byte, error) {
 // ValueBytes returns values's []byte slice. It is usually easier to use and
 // faster then Value(). Because it doesn't requiers allocation for SectionReader
 func (i *iterator) Value() ([]byte, error) {
-	if i.cdbReader.IsEmpty() {
-		return nil, ErrEmptyCDB
-	}
 	valueFactory := i.record.valueSectionFactory
 	return readSection(valueFactory.reader, int64(valueFactory.position), valueFactory.size)
 }
 
 // Record returns copy of current record
 func (i *iterator) Record() Record {
-	if i.cdbReader.IsEmpty() {
-		return nil
-	}
-
 	return &record{
 		keySectionFactory: &sectionReaderFactory{
 			reader:   i.record.keySectionFactory.reader,

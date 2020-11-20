@@ -6,9 +6,13 @@ import (
 	"testing"
 )
 
-func (suite *CDBTestSuite) getCDBIterator() Iterator {
+func (suite *CDBTestSuite) getCDBIterator() (Iterator, error) {
 	reader := suite.getCDBReader()
-	iterator, err := reader.Iterator()
+	return reader.Iterator()
+}
+
+func (suite *CDBTestSuite) mustGetCDBIterator() Iterator {
+	iterator, err := suite.getCDBIterator()
 	suite.Require().Nilf(err, "Iterator creation error: %#v", err)
 	return iterator
 }
@@ -16,13 +20,11 @@ func (suite *CDBTestSuite) getCDBIterator() Iterator {
 func (suite *CDBTestSuite) TestIteratorOnEmptyDataSet() {
 	suite.writeEmptyCDB()
 
-	iterator := suite.getCDBIterator()
+	iterator, err := suite.getCDBIterator()
 
-	suite.False(iterator.HasNext(), "Iterator must return false on HasNext")
+	suite.EqualError(err, ErrEmptyCDB.Error())
 
-	ok, err := iterator.Next()
-	suite.False(ok, "Next should returns false")
-	suite.Nilf(err, "Got unexpected error %v", err)
+	suite.Nilf(iterator, "Iterator must return false on HasNext")
 }
 
 func (suite *CDBTestSuite) EqualKeyValue(iter Iterator, testRec testCDBRecord) {
@@ -58,7 +60,7 @@ func (suite *CDBTestSuite) EqualRecords(record Record, testRec testCDBRecord) {
 func (suite *CDBTestSuite) TestIterator() {
 	suite.fillTestCDB()
 
-	iterator := suite.getCDBIterator()
+	iterator := suite.mustGetCDBIterator()
 
 	for i, testRec := range suite.testRecords {
 		suite.EqualKeyValue(iterator, testRec)
@@ -79,7 +81,7 @@ func (suite *CDBTestSuite) TestIterator() {
 
 func (suite *CDBTestSuite) TestIteratorNext() {
 	suite.fillTestCDB()
-	iterator := suite.getCDBIterator()
+	iterator := suite.mustGetCDBIterator()
 
 	record1 := iterator.Record()
 	suite.EqualRecords(record1, suite.testRecords[0])
@@ -101,24 +103,6 @@ func (suite *CDBTestSuite) TestIteratorAt() {
 
 		suite.EqualKeyValue(iterator, testRec)
 	}
-}
-
-func (suite *CDBTestSuite) TestIteratorEmpty() {
-	writer := suite.getCDBWriter()
-	suite.Require().Nilf(writer.Close(), "Can't close cdb writer")
-
-	iterator := suite.getCDBIterator()
-	suite.False(iterator.HasNext(), "Has next must be false on empty cdb")
-
-	suite.Nil(iterator.Record()) // now it is not empty
-
-	key, err := iterator.Key()
-	suite.Nil(key) // now it is not empty
-	suite.EqualError(err, ErrEmptyCDB.Error())
-
-	val, err := iterator.Value()
-	suite.Nil(val)
-	suite.EqualError(err, ErrEmptyCDB.Error())
 }
 
 func BenchmarkIteratorAt(b *testing.B) {

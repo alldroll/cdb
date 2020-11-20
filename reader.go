@@ -2,9 +2,9 @@ package cdb
 
 import (
 	"bytes"
-	"fmt"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 )
 
@@ -72,7 +72,6 @@ func (r *readerImpl) IsEmpty() bool {
 	return r.endPos == 0
 }
 
-
 // Get returns the first value associated with the given key
 func (r *readerImpl) Get(key []byte) ([]byte, error) {
 	valueSection, err := r.findEntry(key)
@@ -102,7 +101,11 @@ func (r *readerImpl) Has(key []byte) (bool, error) {
 
 // Iterator returns new Iterator object that points on first record
 func (r *readerImpl) Iterator() (Iterator, error) {
-	iterator := r.newIterator(tablesRefsSize, nil, nil)
+	iterator, err := r.newIterator(tablesRefsSize, nil, nil)
+
+	if err != nil {
+		return nil, err
+	}
 
 	if _, err := iterator.Next(); err != nil {
 		return nil, err
@@ -126,7 +129,7 @@ func (r *readerImpl) IteratorAt(key []byte) (Iterator, error) {
 			size:   uint32(len(key)),
 		},
 		valueSection,
-	), nil
+	)
 }
 
 // Size returns the size of the dataset
@@ -238,7 +241,12 @@ func (r *readerImpl) readPair(pos uint32, a, b *uint32) error {
 }
 
 // newIterator returns new instance of Iterator object
-func (r *readerImpl) newIterator(position uint32, keySectionFactory, valueSectionFactory *sectionReaderFactory) Iterator {
+func (r *readerImpl) newIterator(position uint32, keySectionFactory, valueSectionFactory *sectionReaderFactory) (Iterator, error) {
+
+	if r.IsEmpty() {
+		return nil, ErrEmptyCDB
+	}
+
 	if keySectionFactory == nil {
 		keySectionFactory = &sectionReaderFactory{
 			reader: r.reader,
@@ -250,7 +258,7 @@ func (r *readerImpl) newIterator(position uint32, keySectionFactory, valueSectio
 		}
 	}
 
-	return &iterator{
+	resIterator := &iterator{
 		position:  position,
 		cdbReader: r,
 		record: &record{
@@ -258,4 +266,6 @@ func (r *readerImpl) newIterator(position uint32, keySectionFactory, valueSectio
 			valueSectionFactory: valueSectionFactory,
 		},
 	}
+
+	return resIterator, nil
 }
