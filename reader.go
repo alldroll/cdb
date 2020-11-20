@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
 )
 
@@ -62,7 +61,6 @@ func (r *readerImpl) initialize() error {
 			break
 		}
 	}
-	fmt.Println("endpos:", r.endPos)
 
 	return nil
 }

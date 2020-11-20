@@ -91,7 +91,6 @@ func (w *writerImpl) Put(key, value []byte) error {
 // Close commits database, makes it possible for reading.
 func (w *writerImpl) Close() error {
 	w.buffer.Flush()
-	defer w.buffer.Flush()
 
 	for _, table := range &w.tables {
 		n := uint32(len(table) << 1)
