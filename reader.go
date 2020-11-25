@@ -7,6 +7,9 @@ import (
 	"io"
 )
 
+// EntryDoesNotExists could be returned for Get method is cdb has no such key
+var ErrEntryNotFound = errors.New("cdb entry not found")
+
 // hashTableRef is a pointer that state a position and a length of the hash table
 // position is the starting byte position of the hash table.
 // The length is the number of slots in the hash table.
@@ -62,12 +65,20 @@ func (r *readerImpl) initialize() error {
 	return nil
 }
 
+// IsEmpty returns true if cdb has no records
+func (r *readerImpl) IsEmpty() bool {
+	return r.endPos == 0
+}
+
 // Get returns the first value associated with the given key
 func (r *readerImpl) Get(key []byte) ([]byte, error) {
 	valueSection, err := r.findEntry(key)
 
-	if valueSection == nil || err != nil {
+	if err != nil {
 		return nil, err
+	}
+	if valueSection == nil {
+		return nil, ErrEntryNotFound
 	}
 
 	value := make([]byte, valueSection.size)
@@ -88,7 +99,11 @@ func (r *readerImpl) Has(key []byte) (bool, error) {
 
 // Iterator returns new Iterator object that points on first record
 func (r *readerImpl) Iterator() (Iterator, error) {
-	iterator := r.newIterator(tablesRefsSize, nil, nil)
+	iterator, err := r.newIterator(tablesRefsSize, nil, nil)
+
+	if err != nil {
+		return nil, err
+	}
 
 	if _, err := iterator.Next(); err != nil {
 		return nil, err
@@ -112,7 +127,7 @@ func (r *readerImpl) IteratorAt(key []byte) (Iterator, error) {
 			size:   uint32(len(key)),
 		},
 		valueSection,
-	), nil
+	)
 }
 
 // Size returns the size of the dataset
@@ -224,8 +239,24 @@ func (r *readerImpl) readPair(pos uint32, a, b *uint32) error {
 }
 
 // newIterator returns new instance of Iterator object
-func (r *readerImpl) newIterator(position uint32, keySectionFactory, valueSectionFactory *sectionReaderFactory) Iterator {
-	return &iterator{
+func (r *readerImpl) newIterator(position uint32, keySectionFactory, valueSectionFactory *sectionReaderFactory) (Iterator, error) {
+
+	if r.IsEmpty() {
+		return nil, ErrEmptyCDB
+	}
+
+	if keySectionFactory == nil {
+		keySectionFactory = &sectionReaderFactory{
+			reader: r.reader,
+		}
+	}
+	if valueSectionFactory == nil {
+		valueSectionFactory = &sectionReaderFactory{
+			reader: r.reader,
+		}
+	}
+
+	resIterator := &iterator{
 		position:  position,
 		cdbReader: r,
 		record: &record{
@@ -233,4 +264,6 @@ func (r *readerImpl) newIterator(position uint32, keySectionFactory, valueSectio
 			valueSectionFactory: valueSectionFactory,
 		},
 	}
+
+	return resIterator, nil
 }

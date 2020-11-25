@@ -6,9 +6,13 @@ import (
 	"testing"
 )
 
-func (suite *CDBTestSuite) getCDBIterator() Iterator {
+func (suite *CDBTestSuite) getCDBIterator() (Iterator, error) {
 	reader := suite.getCDBReader()
-	iterator, err := reader.Iterator()
+	return reader.Iterator()
+}
+
+func (suite *CDBTestSuite) mustGetCDBIterator() Iterator {
+	iterator, err := suite.getCDBIterator()
 	suite.Require().Nilf(err, "Iterator creation error: %#v", err)
 	return iterator
 }
@@ -16,13 +20,23 @@ func (suite *CDBTestSuite) getCDBIterator() Iterator {
 func (suite *CDBTestSuite) TestIteratorOnEmptyDataSet() {
 	suite.writeEmptyCDB()
 
-	iterator := suite.getCDBIterator()
+	iterator, err := suite.getCDBIterator()
 
-	suite.False(iterator.HasNext(), "Iterator must return false on HasNext")
+	suite.EqualError(err, ErrEmptyCDB.Error())
 
-	ok, err := iterator.Next()
-	suite.False(ok, "Next should returns false")
-	suite.Nilf(err, "Got unexpected error %v", err)
+	suite.Nilf(iterator, "Iterator must return false on HasNext")
+}
+
+func (suite *CDBTestSuite) EqualKeyValue(iter Iterator, testRec testCDBRecord) {
+	suite.EqualRecords(iter.Record(), testRec)
+
+	key, err := iter.Key()
+	suite.Nilf(err, "Cant get key: %#v", err)
+	value, err := iter.Value()
+	suite.Nilf(err, "Cant get value: %#v", err)
+
+	suite.Equal(testRec.key, key, "Keys must be equal. Got: %s, Expected: %s", key, testRec.key)
+	suite.Equal(testRec.val, value, "Values must be equal. Got: %s, Expected: %s", value, testRec.val)
 }
 
 func (suite *CDBTestSuite) EqualRecords(record Record, testRec testCDBRecord) {
@@ -46,11 +60,10 @@ func (suite *CDBTestSuite) EqualRecords(record Record, testRec testCDBRecord) {
 func (suite *CDBTestSuite) TestIterator() {
 	suite.fillTestCDB()
 
-	iterator := suite.getCDBIterator()
+	iterator := suite.mustGetCDBIterator()
 
 	for i, testRec := range suite.testRecords {
-		record := iterator.Record()
-		suite.EqualRecords(record, testRec)
+		suite.EqualKeyValue(iterator, testRec)
 
 		ok, err := iterator.Next()
 		suite.Nilf(err, "Error on interator.Next: %#v", err)
@@ -66,6 +79,20 @@ func (suite *CDBTestSuite) TestIterator() {
 	suite.False(ok, "HasNext should returns false if has no more records")
 }
 
+func (suite *CDBTestSuite) TestIteratorNext() {
+	suite.fillTestCDB()
+	iterator := suite.mustGetCDBIterator()
+
+	record1 := iterator.Record()
+	suite.EqualRecords(record1, suite.testRecords[0])
+
+	iterator.Next()
+	record2 := iterator.Record()
+	suite.EqualRecords(record2, suite.testRecords[1])
+
+	suite.NotEqual(record1, record2)
+}
+
 func (suite *CDBTestSuite) TestIteratorAt() {
 	suite.fillTestCDB()
 	reader := suite.getCDBReader()
@@ -74,12 +101,11 @@ func (suite *CDBTestSuite) TestIteratorAt() {
 		iterator, err := reader.IteratorAt(testRec.key)
 		suite.Nilf(err, "Unexpected error for reader.IteratorAt: %#v", err)
 
-		record := iterator.Record()
-		suite.EqualRecords(record, testRec)
+		suite.EqualKeyValue(iterator, testRec)
 	}
 }
 
-func BenchmarkReaderIteratorAt(b *testing.B) {
+func BenchmarkIteratorAt(b *testing.B) {
 
 	n := 1000
 	f, _ := os.Create("test.cdb")
@@ -102,4 +128,76 @@ func BenchmarkReaderIteratorAt(b *testing.B) {
 	for j := 0; j < b.N; j++ {
 		reader.IteratorAt(keys[j%n])
 	}
+}
+
+func BenchmarkIteratorNext(b *testing.B) {
+	iter, f := getTestCDBIterator(b)
+	defer f.Close()
+	defer os.Remove(f.Name())
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		iter.Next()
+	}
+	b.StopTimer()
+
+}
+
+func BenchmarkIteratorRecordKey(b *testing.B) {
+	iter, f := getTestCDBIterator(b)
+	defer f.Close()
+	defer os.Remove(f.Name())
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		reader, size := iter.Record().Key()
+		key := make([]byte, size)
+		reader.Read(key)
+	}
+	b.StopTimer()
+
+}
+
+func BenchmarkIteratorKey(b *testing.B) {
+	iter, f := getTestCDBIterator(b)
+	defer f.Close()
+	defer os.Remove(f.Name())
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		iter.Key()
+	}
+	b.StopTimer()
+}
+
+func getTestCDBIterator(b *testing.B) (Iterator, *os.File) {
+	f, err := os.Create("test.cdb")
+	if err != nil {
+		panic(err)
+	}
+
+	handle := New()
+	writer, err := handle.GetWriter(f)
+	if err != nil {
+		panic(err)
+	}
+
+	keys := make([][]byte, b.N)
+	for i := 0; i < b.N; i++ {
+		keys[i] = []byte(strconv.Itoa(i))
+		writer.Put(keys[i], keys[i])
+	}
+
+	writer.Close()
+	reader, err := handle.GetReader(f)
+	if err != nil {
+		panic(err)
+	}
+
+	iter, err := reader.Iterator()
+	if err != nil {
+		panic(err)
+	}
+
+	return iter, f
 }
